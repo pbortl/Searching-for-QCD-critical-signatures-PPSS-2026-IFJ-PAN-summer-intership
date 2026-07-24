@@ -43,6 +43,9 @@ public:
     
     TH2F* h_dedx_ptot_protons;
     TH2F* h_dedx_ptot_neg_protons;
+    TH2F* h2_px_py_pos;
+    TH2F* h2_px_py_neg;
+    TH1F* h_Y_CM_tracks;
     
     TH1F* hist_events;
     TH1F* hist_tracks;

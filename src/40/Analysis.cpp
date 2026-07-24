@@ -110,6 +110,12 @@ void Analysis::Run() {
     unsigned int nEvents_after_centrality = 0;
     unsigned int nTracksFit_after_centrality = 0;
 
+    double mp = 0.93827;
+    double pL = Config::BeamMomentum;
+    double E_L = std::sqrt(mp*mp + pL*pL);
+    double E_CM = 0.5 * std::sqrt(2.0 * mp * (mp + E_L));
+    double Y_beam_shift = std::acosh(E_CM / mp);
+//rapility in CM frame: Y_CM = Y_LAB - Y_beam_shift first
     std::cout << "dynamic centrality limit" << std::endl;
     for (Long64_t ievents = 0; ievents < nentries; ievents++) {
         chain.GetEntry(ievents);
@@ -239,46 +245,47 @@ void Analysis::Run() {
                             if (std::abs(tracks.bx) > Config::ImpactParam_bx_max || std::abs(tracks.by) > Config::ImpactParam_by_max) continue;
                             nTracks_ImpactParameter++;
                             hists.h2_bx_by_cut->Fill(tracks.bx, tracks.by);
-
+                            //vector momentum components all
                             double ptot = std::sqrt(tracks.px * tracks.px + tracks.py * tracks.py + tracks.pz * tracks.pz);
                             double log_ptot = std::log10(ptot);
 
+                            double bb_proton_dedx = bbWrapper(3, ptot);
+                            double bb_kaon_dedx = bbWrapper(2, ptot);
+                            double delta_kp = bb_kaon_dedx - bb_proton_dedx;
+                            //counting of rapidity in centre
+                            double E_track = std::sqrt(mp*mp + ptot*ptot);
+                            double Y_LAB_track = 0.5 * std::log((E_track + tracks.pz) / (E_track - tracks.pz)); //Frame of reference
+                            double Y_CM_track = Y_LAB_track - Y_beam_shift;
+                            //cuttings
+                            bool pass_log_ptot = (log_ptot >= 0.55 && log_ptot <= 2.0);
+                            bool pass_px = (tracks.px > -1.5 && tracks.px < 1.5);
+                            bool pass_py = (tracks.py > -1.5 && tracks.py < 1.5);
+                            bool pass_rapidity = (std::abs(Y_CM_track) <= 0.75);
+
+                            double upper_limit = bb_proton_dedx + 0.15 * delta_kp;
+
                             if (tracks.dEdx > 0) {
                                 hists.h_dedx_ptot_pos->Fill(log_ptot, tracks.dEdx);
-
-                                double bb_proton_dedx = bbWrapper(3, ptot);
-                                double bb_kaon_dedx = bbWrapper(2, ptot);
-                                double delta_kp = bb_kaon_dedx - bb_proton_dedx;
-
-                                bool pass_log_ptot = (log_ptot >= 0.55 && log_ptot <= 2.0);
-                                bool pass_px = (tracks.px >= -2.0 && tracks.px <= 2.0);
-                                bool pass_py = (tracks.py >= -2.0 && tracks.py <= 2.0);
-
-                                double upper_limit = bb_proton_dedx + 0.15 * delta_kp;
                                 bool pass_dedx = (tracks.dEdx <= upper_limit);
 
-                                if (pass_log_ptot && pass_px && pass_py && pass_dedx) {
+                                if (pass_log_ptot && pass_px && pass_py && pass_dedx && pass_rapidity) {
                                     hists.h_dedx_ptot_protons->Fill(log_ptot, tracks.dEdx);
                                     nTracks_protons++;
+                                    
+                                    hists.h2_px_py_pos->Fill(tracks.px, tracks.py);
+                                    hists.h_Y_CM_tracks->Fill(Y_CM_track);
                                 }
 
                             } else if (tracks.dEdx < 0) {
                                 double abs_dedx = std::abs(tracks.dEdx);
                                 hists.h_dedx_ptot_neg->Fill(log_ptot, abs_dedx);
-
-                                double bb_proton_dedx = bbWrapper(3, ptot);
-                                double bb_kaon_dedx = bbWrapper(2, ptot);
-                                double delta_kp = bb_kaon_dedx - bb_proton_dedx;
-
-                                bool pass_log_ptot = (log_ptot >= 0.55 && log_ptot <= 2.0);
-                                bool pass_px = (tracks.px >= -2.0 && tracks.px <= 2.0);
-                                bool pass_py = (tracks.py >= -2.0 && tracks.py <= 2.0);
-
-                                double upper_limit = bb_proton_dedx + 0.15 * delta_kp;
                                 bool pass_dedx = (abs_dedx <= upper_limit);
 
-                                if (pass_log_ptot && pass_px && pass_py && pass_dedx) {
+                                if (pass_log_ptot && pass_px && pass_py && pass_dedx && pass_rapidity) {
                                     hists.h_dedx_ptot_neg_protons->Fill(log_ptot, abs_dedx);
+                                    
+                                    hists.h2_px_py_neg->Fill(tracks.px, tracks.py);
+                                    hists.h_Y_CM_tracks->Fill(Y_CM_track);
                                 }
                             }
                         }

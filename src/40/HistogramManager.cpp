@@ -48,7 +48,11 @@ HistogramManager::HistogramManager() {
     h_dedx_ptot_neg = new TH2F("h_dedx_ptot_neg", "dE/dx vs log(p_tot) negative tracks; Log_{10}(p_{tot} / [GeV/c]); dE/dx (MIP)", 300, -0.6, 2.2, 300, 0.4, 2.0);
     
     h_dedx_ptot_protons = new TH2F("h_dedx_ptot_protons", "dE/dx vs log(p_tot) selected protons; Log_{10}(p_{tot} / [GeV/c]); dE/dx (MIP)", 300, -0.6, 2.2, 300, 0.4, 2.0);
-    h_dedx_ptot_neg_protons = new TH2F("h_dedx_ptot_neg_protons", "dE/dx vs log(p_tot) selected protons negative tracks; Log_{10}(p_{tot} / [GeV/c]); dE/dx (MIP)", 300, -0.6, 2.2, 300, 0.4, 2.0);
+    h_dedx_ptot_neg_protons = new TH2F("h_dedx_ptot_neg_protons", "dE/dx vs log(p_tot) selected anti-protons; Log_{10}(p_{tot} / [GeV/c]); dE/dx (MIP)", 300, -0.6, 2.2, 300, 0.4, 2.0);
+    
+    h2_px_py_pos = new TH2F("h2_px_py_pos", "Positive charge p_{y} vs p_{x}; p_{x} [GeV/c]; p_{y} [GeV/c]", 300, -1.5, 1.5, 300, -1.5, 1.5);
+    h2_px_py_neg = new TH2F("h2_px_py_neg", "Negative charge p_{y} vs p_{x}; p_{x} [GeV/c]; p_{y} [GeV/c]", 300, -1.5, 1.5, 300, -1.5, 1.5);
+    h_Y_CM_tracks = new TH1F("h_Y_CM_tracks", "Selected Poxitive and Negative tracks y^{CM}_{track}; counts", 200, -3.0, 3.0);
 
     TH2F* h2_array[] = {h2_Tracks_vs_PSD_all, h2_Tracks_vs_PSD_cut, 
                         h2_PSD_Peripheral_vs_Selected, h2_PSD_Peripheral_vs_Selected_cut, 
@@ -104,6 +108,9 @@ HistogramManager::~HistogramManager() {
     delete h_dedx_ptot_neg;
     delete h_dedx_ptot_protons; 
     delete h_dedx_ptot_neg_protons;
+    delete h2_px_py_pos;
+    delete h2_px_py_neg;
+    delete h_Y_CM_tracks;
     delete hist_events;
     delete hist_tracks;
 }

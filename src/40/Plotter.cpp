@@ -297,9 +297,19 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
 
     hists.h_dedx_ptot_protons->SetTitle(("dE/dx vs log(p_{tot}) selected protons positive tracks " + suffix + "; Log_{10}(p_{tot} / [GeV/c]); dE/dx (MIP)").c_str());
     hists.h_dedx_ptot_neg_protons->SetTitle(("dE/dx vs log(p_{tot}) selected protons negative tracks " + suffix + "; Log_{10}(p_{tot} / [GeV/c]); dE/dx (MIP)").c_str());
+    
+    hists.h2_px_py_pos->SetTitle(("Positive charge p_{y} vs p_{x} " + suffix + "; p_{x} [GeV/c]; p_{y} [GeV/c]").c_str());
+    hists.h2_px_py_neg->SetTitle(("Negative charge p_{y} vs p_{x} " + suffix + "; p_{x} [GeV/c]; p_{y} [GeV/c]").c_str());
+    hists.h_Y_CM_tracks->SetTitle(("Selected Poxitive and Negative tracks y^{CM}_{track} " + suffix + "; y^{CM}_{track}; counts").c_str());
 
     printPage(hists.h_dedx_ptot_protons, "COLZ", false, true, drawBBCurves, fOutProtons);
     printPage(hists.h_dedx_ptot_neg_protons, "COLZ", false, true, drawBBCurves, fOutProtons);
+    
+    printPage(hists.h2_px_py_pos, "COLZ", false, false, nullptr, fOutProtons);
+    printPage(hists.h2_px_py_neg, "COLZ", false, false, nullptr, fOutProtons);
+    
+    hists.h_Y_CM_tracks->SetFillColor(kBlue-7);
+    printPage(hists.h_Y_CM_tracks, "HIST", false, false, nullptr, fOutProtons);
 
     c->Print((pdfFilePath + "]").c_str());
     
@@ -346,6 +356,9 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
     fOutProtons->cd();
     hists.h_dedx_ptot_protons->Write();
     hists.h_dedx_ptot_neg_protons->Write();
+    hists.h2_px_py_pos->Write();
+    hists.h2_px_py_neg->Write();
+    hists.h_Y_CM_tracks->Write();
     fOutProtons->Close();
 
     std::cout << "Successfully saved all plots into: " << pdfFilePath << std::endl;
