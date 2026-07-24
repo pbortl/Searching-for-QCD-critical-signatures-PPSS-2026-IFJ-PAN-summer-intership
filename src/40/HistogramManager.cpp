@@ -67,11 +67,12 @@ HistogramManager::HistogramManager() {
         h2->SetContour(255);
     }
 
-    hist_events = new TH1F("hist_events", "Event Cuts Statistics; Cut Step; Number of Events", 4, 0.5, 4.5);
+    hist_events = new TH1F("hist_events", "Event Cuts Statistics; Cut Step; Number of Events", 5, 0.5, 5.5);
     hist_events->GetXaxis()->SetBinLabel(1, "before cuts");
     hist_events->GetXaxis()->SetBinLabel(2, "Vertex Z");
     hist_events->GetXaxis()->SetBinLabel(3, "PSD Energy");
     hist_events->GetXaxis()->SetBinLabel(4, "Tracks Ratio");
+    hist_events->GetXaxis()->SetBinLabel(5, "0-20% Centrality");
     hist_events->SetStats(0);
 
     hist_tracks = new TH1F("hist_tracks", "Track Cuts Statistics; Cut Step; Number of Tracks", 7, 0.5, 7.5);

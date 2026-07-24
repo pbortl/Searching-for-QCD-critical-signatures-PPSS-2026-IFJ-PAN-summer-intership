@@ -2,9 +2,7 @@
 
 namespace Config {
     constexpr int BeamMomentum = 40;
-
     constexpr double PSD_per_cut = 300.0;
-    constexpr double PSD_sel_max = 2319.5; //20% value PSD energy selected  
 
     constexpr double z_peak = -602.9;
     constexpr double z_min = z_peak - 2.0;

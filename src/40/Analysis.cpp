@@ -111,7 +111,7 @@ void Analysis::Run() {
     unsigned int nTracksFit_after_centrality = 0;
 
     double mp = 0.93827;
-    double pL = Config::BeamMomentum;
+    double pL = Config::BeamMomentum; //40
     double E_L = std::sqrt(mp*mp + pL*pL);
     double E_CM = 0.5 * std::sqrt(2.0 * mp * (mp + E_L));
     double Y_beam_shift = std::acosh(E_CM / mp);
@@ -133,7 +133,7 @@ void Analysis::Run() {
         }
         hists.h_PSD_T2->Fill(pevent->energyPSDSelectedModules);
     }
-
+//counting centrality limits and events for each centrality class
     std::vector<double> cent_limits(4, 0.0);
     std::vector<int> cent_events(4, 0);
     double fracs[4] = {0.05, 0.10, 0.15, 0.20};
@@ -261,7 +261,7 @@ void Analysis::Run() {
                             bool pass_px = (tracks.px > -1.5 && tracks.px < 1.5);
                             bool pass_py = (tracks.py > -1.5 && tracks.py < 1.5);
                             bool pass_rapidity = (std::abs(Y_CM_track) <= 0.75);
-
+                            //bloch 
                             double upper_limit = bb_proton_dedx + 0.15 * delta_kp;
 
                             if (tracks.dEdx > 0) {
@@ -271,7 +271,7 @@ void Analysis::Run() {
                                 if (pass_log_ptot && pass_px && pass_py && pass_dedx && pass_rapidity) {
                                     hists.h_dedx_ptot_protons->Fill(log_ptot, tracks.dEdx);
                                     nTracks_protons++;
-                                    
+                                    //moemntum components for positive tracks
                                     hists.h2_px_py_pos->Fill(tracks.px, tracks.py);
                                     hists.h_Y_CM_tracks->Fill(Y_CM_track);
                                 }
@@ -283,7 +283,7 @@ void Analysis::Run() {
 
                                 if (pass_log_ptot && pass_px && pass_py && pass_dedx && pass_rapidity) {
                                     hists.h_dedx_ptot_neg_protons->Fill(log_ptot, abs_dedx);
-                                    
+                                    //moemntum components for negative tracks
                                     hists.h2_px_py_neg->Fill(tracks.px, tracks.py);
                                     hists.h_Y_CM_tracks->Fill(Y_CM_track);
                                 }
@@ -299,6 +299,8 @@ void Analysis::Run() {
     hists.hist_events->SetBinContent(2, nEvents_VertexZ);
     hists.hist_events->SetBinContent(3, nEvents_PSD);
     hists.hist_events->SetBinContent(4, nEvents_tracksratio);
+    hists.hist_events->SetBinContent(5, nEvents_after_centrality);
+
 
     hists.hist_tracks->SetBinContent(1, nTracks);
     hists.hist_tracks->SetBinContent(2, nTracks_VTPC12);
@@ -307,6 +309,7 @@ void Analysis::Run() {
     hists.hist_tracks->SetBinContent(5, nTracks_pointRatio);
     hists.hist_tracks->SetBinContent(6, nTracks_ImpactParameter);
     hists.hist_tracks->SetBinContent(7, nTracks_protons);
+    hists.hist_tracks->SetBinContent(8, nTracksFit_before_centrality);
 
     std::cout << "Analysis finished successfully!" << std::endl;
 
