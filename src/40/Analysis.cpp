@@ -14,6 +14,7 @@
 #include <sstream>
 #include <cmath>
 #include <vector>
+#include <utility>
 
 #include "TROOT.h"
 #include "TChain.h"
@@ -68,6 +69,10 @@ void Analysis::Run() {
 
     std::string eventName = "EventXeLaMag_" + std::to_string(Config::BeamMomentum) + "A";
     std::string baseFileName = outputDir + "/" + ss_time.str() + "_" + eventName;
+    
+    std::string rapidityTxtPath = baseFileName + "_rapidity_details.txt";
+    std::ofstream rapFile(rapidityTxtPath);
+    int rap_print_counter = 0; 
 
     TChain chain("event_tree");
     std::ifstream file(fileList);
@@ -115,7 +120,33 @@ void Analysis::Run() {
     double E_L = std::sqrt(mp*mp + pL*pL);
     double E_CM = 0.5 * std::sqrt(2.0 * mp * (mp + E_L));
     double Y_beam_shift = std::acosh(E_CM / mp);
-//rapility in CM frame: Y_CM = Y_LAB - Y_beam_shift first
+    //rapility in CM frame: Y_CM = Y_LAB - Y_beam_shift first part
+
+    // F2(M) I
+    const int M_MAX = 150;
+    const double L_window = 3.0; // px, py (from -1.5 to 1.5)
+    const double R_0 = L_window / std::sqrt(M_PI);
+    const double m_f = 0.27;
+
+    std::vector<double> sum_N2(M_MAX, 0.0);
+    std::vector<double> sum_N2_sq(M_MAX, 0.0);
+    double sum_mul = 0.0;
+    double sum_mul_sq = 0.0;
+    long long f2_valid_events = 0;
+   
+
+    if (rapFile.is_open()) {
+        rapFile << "=BEAM KINEMATICS =\n";
+        rapFile << "Rest mass (mp): " << mp << " GeV/c^2\n";
+        rapFile << "Beam momentum (pL): " << pL << " A GeV/c\n";
+        rapFile << "Beam energy LAB (E_L): " << E_L << " GeV\n";
+        rapFile << "CM energy (E_CM): " << E_CM << " GeV\n";
+        rapFile << "CM rapidity shift (Y_beam_shift): " << Y_beam_shift << "\n\n";
+        rapFile << "= TRACK RAPIDITY (Y_LAB - Y_beam_shift = Y_CM) =\n";
+        rapFile << "Printing values for the first 1000 tracks:\n\n";
+        rapFile << std::setw(15) << "Y_LAB" << std::setw(15) << "Y_beam_shift" << std::setw(15) << "Y_CM" << "\n";
+    }
+
     std::cout << "dynamic centrality limit" << std::endl;
     for (Long64_t ievents = 0; ievents < nentries; ievents++) {
         chain.GetEntry(ievents);
@@ -133,7 +164,8 @@ void Analysis::Run() {
         }
         hists.h_PSD_T2->Fill(pevent->energyPSDSelectedModules);
     }
-//counting centrality limits and events for each centrality class
+
+    //counting centrality limits and events for each centrality class
     std::vector<double> cent_limits(4, 0.0);
     std::vector<int> cent_events(4, 0);
     double fracs[4] = {0.05, 0.10, 0.15, 0.20};
@@ -210,6 +242,10 @@ void Analysis::Run() {
                         nEvents_after_centrality++;
                         nTracksFit_after_centrality += pevent->nTracksFit;
 
+                        
+                        std::vector<std::pair<double, double>> event_protons;// Store accepted positive protons for F2 calculation
+                        // Loop over tracks in the event
+
                         for (const auto& tracks : pevent->tracks) {
                             nTracks++;
 
@@ -245,6 +281,7 @@ void Analysis::Run() {
                             if (std::abs(tracks.bx) > Config::ImpactParam_bx_max || std::abs(tracks.by) > Config::ImpactParam_by_max) continue;
                             nTracks_ImpactParameter++;
                             hists.h2_bx_by_cut->Fill(tracks.bx, tracks.by);
+
                             //vector momentum components all
                             double ptot = std::sqrt(tracks.px * tracks.px + tracks.py * tracks.py + tracks.pz * tracks.pz);
                             double log_ptot = std::log10(ptot);
@@ -252,15 +289,25 @@ void Analysis::Run() {
                             double bb_proton_dedx = bbWrapper(3, ptot);
                             double bb_kaon_dedx = bbWrapper(2, ptot);
                             double delta_kp = bb_kaon_dedx - bb_proton_dedx;
+
                             //counting of rapidity in centre
                             double E_track = std::sqrt(mp*mp + ptot*ptot);
                             double Y_LAB_track = 0.5 * std::log((E_track + tracks.pz) / (E_track - tracks.pz)); //Frame of reference
                             double Y_CM_track = Y_LAB_track - Y_beam_shift;
+
+                            if (rapFile.is_open() && rap_print_counter < 1000) {
+                                rapFile << std::setw(15) << Y_LAB_track 
+                                        << std::setw(15) << Y_beam_shift 
+                                        << std::setw(15) << Y_CM_track << "\n";
+                                rap_print_counter++;
+                            }
+
                             //cuttings
                             bool pass_log_ptot = (log_ptot >= 0.55 && log_ptot <= 2.0);
                             bool pass_px = (tracks.px > -1.5 && tracks.px < 1.5);
                             bool pass_py = (tracks.py > -1.5 && tracks.py < 1.5);
                             bool pass_rapidity = (std::abs(Y_CM_track) <= 0.75);
+
                             //bloch 
                             double upper_limit = bb_proton_dedx + 0.15 * delta_kp;
 
@@ -274,6 +321,9 @@ void Analysis::Run() {
                                     //moemntum components for positive tracks
                                     hists.h2_px_py_pos->Fill(tracks.px, tracks.py);
                                     hists.h_Y_CM_tracks->Fill(Y_CM_track);
+
+                                    // Store accepted positive protons for F2 calculation
+                                    event_protons.push_back({tracks.px, tracks.py});
                                 }
 
                             } else if (tracks.dEdx < 0) {
@@ -289,6 +339,37 @@ void Analysis::Run() {
                                 }
                             }
                         }
+
+                        // F2(M) II 
+                        double current_mul = event_protons.size();
+                        sum_mul += current_mul;
+                        sum_mul_sq += current_mul * current_mul;
+                        f2_valid_events++;
+
+                        std::vector<double> event_N2(M_MAX, 0.0);
+
+                        for (size_t i = 0; i < event_protons.size(); ++i) {
+                            for (size_t j = i + 1; j < event_protons.size(); ++j) {
+                                double dx = event_protons[i].first - event_protons[j].first;
+                                double dy = event_protons[i].second - event_protons[j].second;
+                                double dist = std::sqrt(dx*dx + dy*dy);
+
+                                if (dist > 0.0) {
+                                    int idx = std::floor(R_0 / dist + m_f);
+                                    if (idx > M_MAX) idx = M_MAX;
+                                    
+                                    for (int m = 0; m < idx; ++m) {
+                                        event_N2[m] += 1.0;
+                                    }
+                                }
+                            }
+                        }
+
+                        for (int m = 0; m < M_MAX; ++m) {
+                            sum_N2[m] += event_N2[m];
+                            sum_N2_sq[m] += event_N2[m] * event_N2[m];
+                        }
+                        
                     }
                 }
             }
@@ -301,7 +382,6 @@ void Analysis::Run() {
     hists.hist_events->SetBinContent(4, nEvents_tracksratio);
     hists.hist_events->SetBinContent(5, nEvents_after_centrality);
 
-
     hists.hist_tracks->SetBinContent(1, nTracks);
     hists.hist_tracks->SetBinContent(2, nTracks_VTPC12);
     hists.hist_tracks->SetBinContent(3, nTracks_ClustersAll);
@@ -311,7 +391,61 @@ void Analysis::Run() {
     hists.hist_tracks->SetBinContent(7, nTracks_protons);
     hists.hist_tracks->SetBinContent(8, nTracksFit_before_centrality);
 
+    if (rapFile.is_open()) {
+        rapFile.close();
+    }
+
+    
+    std::string f2TxtPath = baseFileName + "_F2_results.txt";
+    std::ofstream f2File(f2TxtPath);
+    // F2(M) III 
+    if (f2File.is_open() && f2_valid_events > 0) {
+        double avg_mul = sum_mul / f2_valid_events;
+        double avg_mul_sq = sum_mul_sq / f2_valid_events;// Calculate variance and error for multiplicity
+        
+        double var_mul = avg_mul_sq - (avg_mul * avg_mul);// Variance of multiplicity
+        if (var_mul < 0) var_mul = 0.0; // Ensure non-negative variance
+        double err_mul = std::sqrt(var_mul) / std::sqrt(f2_valid_events);
+
+        f2File << "M\tF2_M\terr_F2_M\tavg_N2\terr_N2\tavg_mul\terr_mul\n";// Header for the output file
+
+        for (int m = 0; m < M_MAX; ++m) {
+            int M_val = m + 1; 
+            
+            double avg_N2 = sum_N2[m] / f2_valid_events;
+            double avg_N2_sq = sum_N2_sq[m] / f2_valid_events;
+            
+            double var_N2 = avg_N2_sq - (avg_N2 * avg_N2);
+            if (var_N2 < 0) var_N2 = 0.0;
+            double err_N2 = std::sqrt(var_N2) / std::sqrt(f2_valid_events);
+
+            double F2_M = 0.0;
+            double err_F2_M = 0.0;
+
+            if (avg_mul > 0 && avg_N2 > 0) {
+                F2_M = (2.0 * M_val * M_val * avg_N2) / (avg_mul * avg_mul);
+                
+                double rel_err_N2 = err_N2 / avg_N2;
+                double rel_err_mul = err_mul / avg_mul;
+                
+                err_F2_M = F2_M * std::sqrt(rel_err_N2 * rel_err_N2 + 4.0 * rel_err_mul * rel_err_mul);
+            }
+
+            f2File << M_val << "\t" 
+                   << F2_M << "\t" 
+                   << err_F2_M << "\t" 
+                   << avg_N2 << "\t" 
+                   << err_N2 << "\t" 
+                   << avg_mul << "\t" 
+                   << err_mul << "\n";
+        }
+        f2File.close();
+        std::cout << "=> F2(M) calculation finished! Results saved to: " << f2TxtPath << std::endl;
+    }
+    
+
     std::cout << "Analysis finished successfully!" << std::endl;
+    std::cout << "=> Rapidity parameters saved to file: " << rapidityTxtPath << std::endl;
 
     std::cout << "\n=== Centrality Stats ===" << std::endl;
     std::cout << "Events surviving 0-20% cut: " << nEvents_after_centrality << std::endl;

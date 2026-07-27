@@ -18,6 +18,7 @@
 #include "TStyle.h"
 #include "TPaveText.h"
 #include "TText.h"
+#include "TGraphErrors.h"
 
 void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFileName, const std::vector<double>& cent_limits, const std::vector<int>& cent_events) {
     std::cout << "Generating multi-page PDF and saving to ROOT files..." << std::endl;
@@ -311,11 +312,65 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
     hists.h_Y_CM_tracks->SetFillColor(kBlue-7);
     printPage(hists.h_Y_CM_tracks, "HIST", false, false, nullptr, fOutProtons);
 
+    // =========================================================================
+    // --- F2(M) PLOTTING FROM TXT ---
+    // =========================================================================
+    std::string f2TxtPath = baseFileName + "_F2_results.txt";
+    std::ifstream f2FileIn(f2TxtPath);
+    TGraphErrors* gr_F2 = nullptr;
+
+    if (f2FileIn.is_open()) {
+        std::string header;
+        std::getline(f2FileIn, header); // Pomijamy naglowek
+
+        gr_F2 = new TGraphErrors();
+        gr_F2->SetName("g_F2_M");
+        gr_F2->SetTitle(("Raw F_{2}(M)" + suffix + "; M^{2} (Number of cells); F_{2}(M)").c_str());
+
+        int M;
+        double F2_M, err_F2_M, avg_N2, err_N2, avg_mul, err_mul;
+        int pointIdx = 0;
+
+        // Czytamy dane do momentu konca pliku
+        while (f2FileIn >> M >> F2_M >> err_F2_M >> avg_N2 >> err_N2 >> avg_mul >> err_mul) {
+            double M2 = M * M;
+            gr_F2->SetPoint(pointIdx, M2, F2_M);
+            gr_F2->SetPointError(pointIdx, 0.0, err_F2_M);
+            pointIdx++;
+        }
+        f2FileIn.close();
+
+        // Jesli odczytano jakiekolwiek dane, dodajemy nowa strone do PDF
+        if (pointIdx > 0) {
+            c->Clear();
+            gPad->SetLogy(0);
+            gPad->SetLogz(0);
+            gPad->SetGrid(1, 1);
+            gPad->SetBottomMargin(0.12);
+            gPad->SetLeftMargin(0.12);
+
+            gr_F2->SetMarkerStyle(20);
+            gr_F2->SetMarkerSize(0.8);
+            gr_F2->SetMarkerColor(kBlue+2);
+            gr_F2->SetLineColor(kBlue+2);
+            
+            gr_F2->Draw("AP");
+            c->Update();
+            c->Print(pdfFilePath.c_str());
+            
+            fOut->cd();
+            gr_F2->Write("F2_M_Graph");
+        }
+    }
+    // =========================================================================
+
+    // Zamkniecie pliku PDF
     c->Print((pdfFilePath + "]").c_str());
     
     delete bbElectron; delete bbPion; delete bbKaon; delete bbProton; delete bbDeuteron;
     delete bbLegend;
     delete c;
+    if(gr_F2) delete gr_F2;
 
     fOut->cd();
     hists.hist_events->Write(); 
