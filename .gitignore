@@ -1,4 +1,6 @@
-run_analysis
-*.root
 *.o
+analysis
+compare_f2
+run_events
+run_mixed
 run_analysis
