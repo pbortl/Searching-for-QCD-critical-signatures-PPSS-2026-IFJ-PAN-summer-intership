@@ -22,7 +22,7 @@ HistogramManager::HistogramManager() {
     h2_TracksInFit_vs_PSD_after_Vz = new TH2F("h2_TracksInFit_vs_PSD_after_Vz", "Selected energy vs tracks in fit (After Vz Cut); PSD Energy (selected) [GeV]; nTracks in fit", 350, 0, 7000, 350, 0, 350);
     h2_TracksInFit_vs_PSD_cut = new TH2F("h2_TracksInFit_vs_PSD_cut", "Selected energy vs tracks in fit (Cut); PSD Energy (selected) [GeV]; nTracks in fit", 350, 0, 7000, 350, 0, 350);
     
-    h2_TracksInFit_vs_PSD_Central = new TH2F("h2_TracksInFit_vs_PSD_Central", "Selected energy vs tracks in fit (0-20% Central); PSD Energy (selected) [GeV]; nTracks in fit", 350, 0, 7000, 350, 0, 350);
+    h2_TracksInFit_vs_PSD_Central = new TH2F("h2_TracksInFit_vs_PSD_Central", "Selected energy vs tracks in fit (0-10% Central); PSD Energy (selected) [GeV]; nTracks in fit", 350, 0, 7000, 350, 0, 350);
 
     h_PSD_T2 = new TH1F("h_PSD_T2", "PSD energy T2; Energy [GeV]; Events", 500, 0, 5000);
 
@@ -88,7 +88,7 @@ HistogramManager::HistogramManager() {
     hist_events->GetXaxis()->SetBinLabel(2, "Vertex Z");
     hist_events->GetXaxis()->SetBinLabel(3, "PSD Energy");
     hist_events->GetXaxis()->SetBinLabel(4, "Tracks Ratio");
-    hist_events->GetXaxis()->SetBinLabel(5, "0-20% Centrality");
+    hist_events->GetXaxis()->SetBinLabel(5, "0-10% Centrality");
     hist_events->SetStats(0);
 
     hist_tracks = new TH1F("hist_tracks", "Track Cuts Statistics; Cut Step; Number of Tracks", 7, 0.5, 7.5);

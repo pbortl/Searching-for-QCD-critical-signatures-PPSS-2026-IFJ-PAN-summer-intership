@@ -47,7 +47,7 @@ namespace {
     }
 
     void DrawCentralityLines1D(double yMax, const std::vector<double>& cent_limits, const std::vector<int>& cent_events, int total_evts) {
-        for(int i = 0; i < 4; i++) {
+        for(size_t i = 0; i < cent_limits.size(); i++) { // ZMIANA: dynamiczny rozmiar
             if(cent_limits[i] > 0) {
                 TLine line(cent_limits[i], 0, cent_limits[i], yMax);
                 line.SetLineColor(kRed);
@@ -64,13 +64,11 @@ namespace {
         pt.AddText(Form("total evets: %d", total_evts));
         pt.AddText(Form("0-5%%: %d", cent_events[0]));
         pt.AddText(Form("5-10%%: %d", cent_events[1] - cent_events[0]));
-        pt.AddText(Form("10-15%%: %d", cent_events[2] - cent_events[1]));
-        pt.AddText(Form("15-20%%: %d", cent_events[3] - cent_events[2]));
         pt.DrawClone("SAME");
     }
 
     void DrawCentralityLines2D(double yMax, const std::vector<double>& cent_limits, const std::vector<int>& cent_events, int total_evts) {
-        for(int i = 0; i < 4; i++) {
+        for(size_t i = 0; i < cent_limits.size(); i++) {
             if(cent_limits[i] > 0) {
                 TLine line(cent_limits[i], 0, cent_limits[i], yMax);
                 line.SetLineColor(kRed);
@@ -87,8 +85,6 @@ namespace {
         pt.AddText(Form("total evets: %d", total_evts));
         pt.AddText(Form("0-5%%: %d", cent_events[0]));
         pt.AddText(Form("5-10%%: %d", cent_events[1] - cent_events[0]));
-        pt.AddText(Form("10-15%%: %d", cent_events[2] - cent_events[1]));
-        pt.AddText(Form("15-20%%: %d", cent_events[3] - cent_events[2]));
         pt.DrawClone("SAME");
     }
 }
@@ -131,7 +127,7 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
     
     hists.h_PSD_T2->SetTitle(("events vs E_{PSD} (cut)" + suffix).c_str());
     hists.h2_TracksInFit_vs_PSD_cut->SetTitle(("track (fit) vs E_{PSD} (cut)" + suffix).c_str());
-    hists.h2_TracksInFit_vs_PSD_Central->SetTitle(("fitted tracks vs PSD energy AFTER 0-20% cut" + suffix).c_str());
+    hists.h2_TracksInFit_vs_PSD_Central->SetTitle(("fitted tracks vs PSD energy AFTER 0-10% cut" + suffix).c_str());
     
     hists.h2_bx_by_all->SetTitle(("bxby before" + suffix).c_str());
     hists.h2_bx_by_cut->SetTitle(("bxby cutted" + suffix).c_str());

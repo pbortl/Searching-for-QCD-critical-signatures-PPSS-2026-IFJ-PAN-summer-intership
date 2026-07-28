@@ -86,8 +86,7 @@ void Analysis_mixed::Run() {
     chain.SetBranchAddress("EventXeLaMag", &pevent);
 
     Long64_t nentries = chain.GetEntries();
-    std::cout << "Step 1: Analyzing " << nentries << " original events for centrality limit..." << std::endl;
-
+    
     HistogramManager hists;
     double mp = 0.93827;
     double pL = Config::BeamMomentum;
@@ -103,34 +102,50 @@ void Analysis_mixed::Run() {
      */
     double Y_beam_shift = std::acosh(E_CM / mp);
 
-    // Calculate centrality (fills h_PSD_T2 for mixed)
+    // Calculate centrality limit on CLEAN events (fills h_PSD_T2 for mixed)
+    std::cout << "Step 1: Calculating dynamic centrality limit on CLEAN events..." << std::endl;
     for (Long64_t ievents = 0; ievents < nentries; ievents++) {
         chain.GetEntry(ievents);
+
+        if (ievents > 0 && ievents % 100000 == 0) {
+            double percent = (static_cast<double>(ievents) / nentries) * 100.0;
+            std::cout << "Phase 1 Processed: " << ievents << " / " << nentries << " (" << static_cast<int>(percent) << "%)" << std::endl;
+        }
+
         if (!pevent) continue;
+
         if (pevent->run_number == 34948 || pevent->run_number == 34976 ||
-            pevent->run_number == 35093 || pevent->run_number == 35142) continue;
+            pevent->run_number == 35093 || pevent->run_number == 35142) {
+            continue;
+        }
+
+        // Apply event cuts BEFORE calculating centrality limit
+        if (!EventCuts::PassVertexZ(pevent->VertexZ)) continue;
+        if (pevent->energyPSDPeripheralModules <= Config::PSD_per_cut) continue;
+        if (!EventCuts::PassTracksRatio(pevent->nTracksAll, pevent->nTracksFit)) continue;
+
         hists.h_PSD_T2->Fill(pevent->energyPSDSelectedModules);
     }
 
-    std::vector<double> cent_limits(4, 0.0);
-    std::vector<int> cent_events(4, 0); // Added for plot consistency
-    double fracs[4] = {0.05, 0.10, 0.15, 0.20};
+    std::vector<double> cent_limits(2, 0.0);
+    std::vector<int> cent_events(2, 0); // Added for plot consistency
+    double fracs[2] = {0.05, 0.10};
     
     TH1* cumul = hists.h_PSD_T2->GetCumulative();
     TH1* cumul_raw = hists.h_PSD_T2->GetCumulative();
 
     if (cumul->GetMaximum() > 0) cumul->Scale(0.423 / cumul->GetMaximum());
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 2; ++i) {
         int bin = cumul->FindFirstBinAbove(fracs[i]);
         if (bin > 0) {
             cent_limits[i] = cumul->GetXaxis()->GetBinCenter(bin);
             cent_events[i] = cumul_raw->GetBinContent(bin);
         }
     }
-    double dynamic_limit_20 = cent_limits[3];
+    double dynamic_limit_10 = cent_limits[1];
     delete cumul;
     delete cumul_raw;
-    std::cout << ">> Dynamic 20% centrality threshold calculated as: " << dynamic_limit_20 << " GeV\n" << std::endl;
+    std::cout << ">> Dynamic 10% centrality threshold calculated as: " << dynamic_limit_10 << " GeV\n" << std::endl;
 
     // Mixer settings create
     std::cout << "Step 2: Starting Event Mixer..." << std::endl;
@@ -142,13 +157,13 @@ void Analysis_mixed::Run() {
     TRandom3 rng(12345);
 
     // Event cuts lambda
-    auto event_cuts = [dynamic_limit_20](const EventClass::EventXeLaMag& ev) {
+    auto event_cuts = [dynamic_limit_10](const EventClass::EventXeLaMag& ev) {
         if (ev.run_number == 34948 || ev.run_number == 34976 ||
             ev.run_number == 35093 || ev.run_number == 35142) return false;
         if (!EventCuts::PassVertexZ(ev.VertexZ)) return false;
         if (ev.energyPSDPeripheralModules <= Config::PSD_per_cut) return false;
         if (!EventCuts::PassTracksRatio(ev.nTracksAll, ev.nTracksFit)) return false;
-        if (ev.energyPSDSelectedModules >= dynamic_limit_20) return false;
+        if (ev.energyPSDSelectedModules >= dynamic_limit_10) return false;
         return true;
     };
 

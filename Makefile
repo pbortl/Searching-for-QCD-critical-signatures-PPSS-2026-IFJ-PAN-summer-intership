@@ -34,7 +34,7 @@ BUILD_DIR = build
 BETHE_BLOCH_SRC = $(PPSS_TOOLS_PATH)/BetheBloch/src/BetheBlochWrapper.cc
 
 # 1. Common files
-COMMON_SRCS = $(filter-out $(DIR_40)/main%.cpp $(DIR_40)/Analysis%.cpp, \
+COMMON_SRCS = $(filter-out $(DIR_40)/main%.cpp $(DIR_40)/Analysis%.cpp $(SRC_DIR)/main%.cpp $(SRC_DIR)/Analysis%.cpp, \
               $(wildcard $(SRC_DIR)/*.cpp) \
               $(wildcard $(CORE_DIR)/*.cpp) \
               $(wildcard $(DIR_40)/*.cpp) \
@@ -46,6 +46,7 @@ COMMON_OBJS = $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(notdir $(COMMON_SRCS))) $(BU
 DATA_OBJS = $(BUILD_DIR)/main.o $(BUILD_DIR)/Analysis.o
 MIXED_OBJS = $(BUILD_DIR)/main_mixed.o $(BUILD_DIR)/Analysis_mixed.o
 COMPARE_OBJS = $(BUILD_DIR)/main_compare.o
+EVENTS_OBJS = $(BUILD_DIR)/main_events.o $(BUILD_DIR)/Analysis_Events.o
 
 VPATH = $(SRC_DIR):$(CORE_DIR):$(DIR_40):$(DIR_75)
 
@@ -53,8 +54,9 @@ VPATH = $(SRC_DIR):$(CORE_DIR):$(DIR_40):$(DIR_75)
 TARGET_DATA = analysis
 TARGET_MIXED = run_mixed
 TARGET_COMPARE = compare_f2
+TARGET_EVENTS = run_events
 
-all: $(BUILD_DIR) $(TARGET_DATA) $(TARGET_MIXED) $(TARGET_COMPARE)
+all: $(BUILD_DIR) $(TARGET_DATA) $(TARGET_MIXED) $(TARGET_COMPARE) $(TARGET_EVENTS)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -69,6 +71,9 @@ $(TARGET_MIXED): $(COMMON_OBJS) $(MIXED_OBJS)
 $(TARGET_COMPARE): $(COMMON_OBJS) $(COMPARE_OBJS)
 	$(CXX) $^ $(ROOTLIBS) $(LDFLAGS) -o $@
 
+$(TARGET_EVENTS): $(COMMON_OBJS) $(EVENTS_OBJS)
+	$(CXX) $^ $(ROOTLIBS) $(LDFLAGS) -o $@
+
 $(BUILD_DIR)/%.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -76,6 +81,6 @@ $(BUILD_DIR)/BetheBlochWrapper.o: $(BETHE_BLOCH_SRC)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -rf $(BUILD_DIR) $(TARGET_DATA) $(TARGET_MIXED) $(TARGET_COMPARE)
+	rm -rf $(BUILD_DIR) $(TARGET_DATA) $(TARGET_MIXED) $(TARGET_COMPARE) $(TARGET_EVENTS)
 
 .PHONY: all clean
