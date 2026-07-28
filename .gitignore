@@ -1,6 +1,10 @@
+
 *.o
+*.root
+
 analysis
 compare_f2
 run_events
 run_mixed
 run_analysis
+draw_delta
