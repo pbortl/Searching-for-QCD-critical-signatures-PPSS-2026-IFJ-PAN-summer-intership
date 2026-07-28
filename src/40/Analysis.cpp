@@ -22,14 +22,14 @@
 #include "TError.h"
 #include "TFile.h"
 
-Analysis::Analysis(const std::string& fileListPath) : fileList(fileListPath) {}
+Analysis::Analysis(const std::string& fileListPath) : fileList(fileListPath) {} 
 
 void Analysis::LoadLibraries() {
     static bool initialized = false;
     if (!initialized) {
         std::cout << "Initializing libraries..." << std::endl;
         const char* libs[] = {
-            "/home/p/Documents/PPSS_tools/BetheBloch/BetheBlochWrapper.so",
+            "/home/p/Documents/PPSS_tools/BetheBloch/BetheBlochWrapper.so", 
             "/home/p/Documents/PPSS_tools/Tools/Event.so",
             "/home/p/Documents/PPSS_tools/Tools/CutsMap.noDict.so",
             "/home/p/Documents/PPSS_tools/Tools/EventMixer.noDict.so",
@@ -38,23 +38,23 @@ void Analysis::LoadLibraries() {
         };
         for (const auto& lib : libs) {
             if (gSystem->Load(lib, "", kTRUE) < 0) {
-                std::cerr << "ERROR: Failed to load: " << lib << std::endl;
+                std::cerr << "ERROR: Failed to load: " << lib << std::endl; 
             }
         }
-        initialized = true;
+        initialized = true; 
     }
 }
 
 void Analysis::Run() {
     gROOT->SetBatch(kTRUE);
-    gErrorIgnoreLevel = kError;
+    gErrorIgnoreLevel = kError; 
     LoadLibraries();
 
     std::string outputDir;
-    std::cout << "Enter the path to the output directory (e.g., /home/user/results): ";
+    std::cout << "Enter the path to the output directory (e.g., /home/user/results): "; 
     std::getline(std::cin, outputDir);
 
-    if (!outputDir.empty() && outputDir.back() == '/') {
+    if (!outputDir.empty() && outputDir.back() == '/') { 
         outputDir.pop_back();
     }
     // Ensure the output directory exists
@@ -179,8 +179,9 @@ void Analysis::Run() {
         rapFile << "Printing values for the first 1000 tracks:\n\n";
         rapFile << std::setw(15) << "Y_LAB" << std::setw(15) << "Y_beam_shift" << std::setw(15) << "Y_CM" << "\n";
     }
+    
     /* Save rapidity details to TXT */
-    std::cout << "dynamic centrality limit" << std::endl; // Calculate dynamic centrality limit based on PSD energy distribution
+    std::cout << "Step 1: Calculating dynamic centrality limit on CLEAN events..." << std::endl; // Calculate dynamic centrality limit based on PSD energy distribution
     for (Long64_t ievents = 0; ievents < nentries; ievents++) { 
         chain.GetEntry(ievents); // Load the event data for the current entry in the TChain
 
@@ -195,12 +196,18 @@ void Analysis::Run() {
             pevent->run_number == 35093 || pevent->run_number == 35142) {
             continue;
         }
+
+        // Apply event cuts BEFORE calculating centrality limit
+        if (!EventCuts::PassVertexZ(pevent->VertexZ)) continue;
+        if (pevent->energyPSDPeripheralModules <= Config::PSD_per_cut) continue;
+        if (!EventCuts::PassTracksRatio(pevent->nTracksAll, pevent->nTracksFit)) continue;
+
         hists.h_PSD_T2->Fill(pevent->energyPSDSelectedModules); // Fill the histogram for PSD energy distribution to determine centrality thresholds
     }
 
-    std::vector<double> cent_limits(4, 0.0); // Vector to hold the calculated centrality limits for 5%, 10%, 15%, and 20% centrality
+    std::vector<double> cent_limits(4, 0.0); // Vector to hold the calculated centrality limits for 5%, 10%, 15 % and 20 % centrality
     std::vector<int> cent_events(4, 0); // Vector to hold the number of events corresponding to each centrality limit for plotting consistency
-    double fracs[4] = {0.05, 0.10, 0.15, 0.20}; // Fractions for 5%, 10%, 15%, and 20% centrality thresholds
+    double fracs[4] = {0.05, 0.10, 0.15, 0.20}; // Fractions for 5%, 10%, 15% and 20% centrality thresholds
 
     TH1* cumul = hists.h_PSD_T2->GetCumulative(); // Get the cumulative distribution of the PSD energy histogram
     TH1* cumul_raw = hists.h_PSD_T2->GetCumulative(); // Get a raw copy of the cumulative distribution for event counting
@@ -211,13 +218,13 @@ void Analysis::Run() {
 
     // Calculate centrality limits based on the cumulative distribution of PSD energy
     for (int i = 0; i < 4; ++i) {
-        int bin = cumul->FindFirstBinAbove(fracs[i]); // Find the first bin in the cumulative histogram that exceeds the specified fraction (5%, 10%, 15%, or 20%)
+        int bin = cumul->FindFirstBinAbove(fracs[i]); // Find the first bin in the cumulative histogram that exceeds the specified fraction (5%, 10%, 15 and 20 %)
         if (bin > 0) {
             cent_limits[i] = cumul->GetXaxis()->GetBinCenter(bin); // Store the corresponding PSD energy value for the centrality limit
             cent_events[i] = cumul_raw->GetBinContent(bin); // Store the number of events corresponding to that centrality limit for plotting consistency
         }
     }
-    double dynamic_limit_20 = cent_limits[3]; 
+    double dynamic_limit_20 = cent_limits[1]; 
     delete cumul;
     delete cumul_raw;
 
@@ -272,7 +279,7 @@ void Analysis::Run() {
                     nEvents_before_centrality++; // Increment the count of events before applying the centrality cut
                     nTracksFit_before_centrality += pevent->nTracksFit;
 
-                    if (pevent->energyPSDSelectedModules < dynamic_limit_20) { // Check if the event passes the dynamic centrality cut (20% most central events)
+                    if (pevent->energyPSDSelectedModules < dynamic_limit_20) { // Check if the event passes the dynamic centrality cut (120% most central events)
 
                         hists.h2_TracksInFit_vs_PSD_Central->Fill(pevent->energyPSDSelectedModules, pevent->nTracksFit);// Fill histogram for events passing the dynamic centrality cut
 
