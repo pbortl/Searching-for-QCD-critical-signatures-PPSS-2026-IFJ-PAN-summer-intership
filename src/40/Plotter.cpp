@@ -188,8 +188,9 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
         }
     };
 
-    printPage(hists.h_Vz_all, "HIST", false, false, nullptr, fOut);
-    printPage(hists.h_Vz_cut, "HIST", false, false, nullptr, fOut);
+    // VZ LOG SCALE REQUESTED BY NIKOS:
+    printPage(hists.h_Vz_all, "HIST", true, false, nullptr, fOut);
+    printPage(hists.h_Vz_cut, "HIST", true, false, nullptr, fOut);
 
     printPage(hists.h_PSDperipheral_all, "HIST", true, false, nullptr, fOut);
     printPage(hists.h_PSDperipheral_cut, "HIST", true, false, nullptr, fOut);
@@ -244,22 +245,18 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
     bbElectron->SetLineColor(kMagenta);
     bbElectron->SetLineStyle(7);
     bbElectron->SetLineWidth(2);
-
     TF1 *bbPion = new TF1("bbPion", [&](double *x, double *){ return bbWrapper(1, std::pow(10, x[0])); }, xMin, xMax, 0);
     bbPion->SetLineColor(kBlue);
     bbPion->SetLineStyle(7);
     bbPion->SetLineWidth(2);
-
     TF1 *bbKaon = new TF1("bbKaon", [&](double *x, double *){ return bbWrapper(2, std::pow(10, x[0])); }, xMin, xMax, 0);
     bbKaon->SetLineColor(kGreen);
     bbKaon->SetLineStyle(7);
     bbKaon->SetLineWidth(2);
-
     TF1 *bbProton = new TF1("bbProton", [&](double *x, double *){ return bbWrapper(3, std::pow(10, x[0])); }, xMin, xMax, 0);
     bbProton->SetLineColor(kRed);
     bbProton->SetLineStyle(7);
     bbProton->SetLineWidth(2);
-
     TF1 *bbDeuteron = new TF1("bbDeuteron", [&](double *x, double *){ return bbWrapper(4, std::pow(10, x[0])); }, xMin, xMax, 0);
     bbDeuteron->SetLineColor(kOrange+1);
     bbDeuteron->SetLineStyle(7);
@@ -283,31 +280,39 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
         bbLegend->Draw("SAME");
     };
 
-    printPage(hists.h_dedx_ptot_pos, "COLZ", false, true, drawBBCurves, fOut);
-    printPage(hists.h_dedx_ptot_neg, "COLZ", false, true, drawBBCurves, fOut);
+  //track cut
     
+    // 1. After Quality Cuts
+    printPage(hists.h_dedx_ptot_pos_qual, "COLZ", false, true, drawBBCurves, fOut);
+    printPage(hists.h_dedx_ptot_neg_qual, "COLZ", false, true, drawBBCurves, fOut);
+    printPage(hists.h2_px_py_pos_qual, "COLZ", false, false, nullptr, fOut);
+    printPage(hists.h2_px_py_neg_qual, "COLZ", false, false, nullptr, fOut);
+
+    // 2. After Momentum Cuts
+    printPage(hists.h_dedx_ptot_pos_mom, "COLZ", false, true, drawBBCurves, fOut);
+    printPage(hists.h_dedx_ptot_neg_mom, "COLZ", false, true, drawBBCurves, fOut);
+    printPage(hists.h2_px_py_pos_mom, "COLZ", false, false, nullptr, fOut);
+    printPage(hists.h2_px_py_neg_mom, "COLZ", false, false, nullptr, fOut);
+
+    // 3. After Proton ID
+    printPage(hists.h_dedx_ptot_protons_id, "COLZ", false, true, drawBBCurves, fOut);
+    printPage(hists.h2_px_py_protons_id, "COLZ", false, false, nullptr, fOut);
+    hists.h_Y_CM_protons_id->SetFillColor(kBlue-7);
+    printPage(hists.h_Y_CM_protons_id, "HIST", false, false, nullptr, fOut);
+
+    // 4. After Rapidity (Final output for F2(M))
     TFile *fOutProtons = new TFile(rootProtonsFilePath.c_str(), "RECREATE");
+    printPage(hists.h_dedx_ptot_protons_rap, "COLZ", false, true, drawBBCurves, fOutProtons);
+    printPage(hists.h2_px_py_protons_rap, "COLZ", false, false, nullptr, fOutProtons);
+    hists.h_Y_CM_protons_rap->SetFillColor(kBlue-7);
+    printPage(hists.h_Y_CM_protons_rap, "HIST", false, false, nullptr, fOutProtons);
 
-    hists.h_dedx_ptot_protons->SetTitle(("dE/dx vs log(p_{tot}) selected protons positive tracks " + suffix + "; Log_{10}(p_{tot} / [GeV/c]); dE/dx (MIP)").c_str());
-    hists.h_dedx_ptot_neg_protons->SetTitle(("dE/dx vs log(p_{tot}) selected protons negative tracks " + suffix + "; Log_{10}(p_{tot} / [GeV/c]); dE/dx (MIP)").c_str());
-    
-    hists.h2_px_py_pos->SetTitle(("Positive charge p_{y} vs p_{x} " + suffix + "; p_{x} [GeV/c]; p_{y} [GeV/c]").c_str());
-    hists.h2_px_py_neg->SetTitle(("Negative charge p_{y} vs p_{x} " + suffix + "; p_{x} [GeV/c]; p_{y} [GeV/c]").c_str());
-    hists.h_Y_CM_tracks->SetTitle(("Selected Positive and Negative tracks y^{CM}_{track} " + suffix + "; y^{CM}_{track}; counts").c_str());
-
-    printPage(hists.h_dedx_ptot_protons, "COLZ", false, true, drawBBCurves, fOutProtons);
-    printPage(hists.h_dedx_ptot_neg_protons, "COLZ", false, true, drawBBCurves, fOutProtons);
-    
-    printPage(hists.h2_px_py_pos, "COLZ", false, false, nullptr, fOutProtons);
-    printPage(hists.h2_px_py_neg, "COLZ", false, false, nullptr, fOutProtons);
-    
-    hists.h_Y_CM_tracks->SetFillColor(kBlue-7);
-    printPage(hists.h_Y_CM_tracks, "HIST", false, false, nullptr, fOutProtons);
+   
 
     std::string f2TxtPath = baseFileName + "_F2_results.txt";
     std::ifstream f2FileIn(f2TxtPath);
     TGraphErrors* gr_F2 = nullptr;
-
+    //creating F2 file
     if (f2FileIn.is_open()) {
         std::string header;
         std::getline(f2FileIn, header);
@@ -401,17 +406,8 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
     hists.h_clusters_Ratio_cut->Write();
     hists.h2_bx_by_all->Write(); 
     hists.h2_bx_by_cut->Write();
-    hists.h_dedx_ptot_pos->Write();
-    hists.h_dedx_ptot_neg->Write();
-    hists.h_dedx_ptot_protons->Write();
     fOut->Close();
 
-    fOutProtons->cd();
-    hists.h_dedx_ptot_protons->Write();
-    hists.h_dedx_ptot_neg_protons->Write();
-    hists.h2_px_py_pos->Write();
-    hists.h2_px_py_neg->Write();
-    hists.h_Y_CM_tracks->Write();
     fOutProtons->Close();
 
     std::cout << "Successfully saved all plots into: " << pdfFilePath << std::endl;
@@ -483,9 +479,6 @@ void Plotter::DrawDeltaF2(const std::string& dataFile, const std::string& mixedF
     
     c1->Print((pdfOut + "[").c_str());
 
-    // ==========================================
-    // PAGE 1: Comparison Plot
-    // ==========================================
     c1->Clear();
     gPad->SetBottomMargin(0.12);
     gPad->SetLeftMargin(0.12);
@@ -530,9 +523,6 @@ void Plotter::DrawDeltaF2(const std::string& dataFile, const std::string& mixedF
 
     c1->Print(pdfOut.c_str()); 
 
-    // ==========================================
-    // PAGE 2: Delta F2 Plot
-    // ==========================================
     c1->Clear();
     gPad->SetBottomMargin(0.12);
     gPad->SetLeftMargin(0.12);

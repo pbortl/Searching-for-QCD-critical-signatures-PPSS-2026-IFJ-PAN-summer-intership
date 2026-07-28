@@ -23,8 +23,6 @@ public:
     TH2F* h2_TracksInFit_vs_PSD_after_PSD;
     TH2F* h2_TracksInFit_vs_PSD_after_Vz;
     TH2F* h2_TracksInFit_vs_PSD_cut;
-    TH2F* h_dedx_ptot_pos;
-    TH2F* h_dedx_ptot_neg;
     TH1F* h_PSD_T2;
     TH2F* h2_TracksInFit_vs_PSD_Central;
 
@@ -41,11 +39,27 @@ public:
     TH2F* h2_bx_by_all;
     TH2F* h2_bx_by_cut;
     
-    TH2F* h_dedx_ptot_protons;
-    TH2F* h_dedx_ptot_neg_protons;
-    TH2F* h2_px_py_pos;
-    TH2F* h2_px_py_neg;
-    TH1F* h_Y_CM_tracks;
+    // 1. After Track Quality Cuts
+    TH2F* h_dedx_ptot_pos_qual;
+    TH2F* h_dedx_ptot_neg_qual;
+    TH2F* h2_px_py_pos_qual;
+    TH2F* h2_px_py_neg_qual;
+
+    // 2. After Momentum Cuts
+    TH2F* h_dedx_ptot_pos_mom;
+    TH2F* h_dedx_ptot_neg_mom;
+    TH2F* h2_px_py_pos_mom;
+    TH2F* h2_px_py_neg_mom;
+
+    // 3. After Proton ID (Bethe-Bloch & Positive Charge)
+    TH2F* h_dedx_ptot_protons_id;
+    TH2F* h2_px_py_protons_id;
+    TH1F* h_Y_CM_protons_id;
+
+    // 4. After Rapidity Cut (Final Protons)
+    TH2F* h_dedx_ptot_protons_rap;
+    TH2F* h2_px_py_protons_rap;
+    TH1F* h_Y_CM_protons_rap;
     
     TH1F* hist_events;
     TH1F* hist_tracks;

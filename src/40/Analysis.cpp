@@ -73,6 +73,14 @@ void Analysis::Run() {
     std::string rapidityTxtPath = baseFileName + "_rapidity_details.txt";
     std::ofstream rapFile(rapidityTxtPath);
     int rap_print_counter = 0; 
+    
+    // Open a text file to export proton px and py for inspection if needed
+    std::string pxpyTxtPath = baseFileName + "_protons_pxpy.txt";
+    std::ofstream pxpyFile(pxpyTxtPath);
+    if (pxpyFile.is_open()) {
+        pxpyFile << "px\tpy\n";
+    }
+
     // Ensure the rapidity file is open before writing
     TChain chain("event_tree");
     std::ifstream file(fileList);
@@ -123,7 +131,6 @@ void Analysis::Run() {
     /* 
      * KINEMATICS STEP-BY-STEP: Lorentz Transformation from LAB to CM Frame
      * 
-     *
      * 1. We use the Mandelstam invariant 's', which is conserved across reference frames:
      *    s = (p_beam + p_target)^2 = (E_L + m_N)^2 - (p_L + 0)^2 = 4 * (E_CM)^2
      *
@@ -202,13 +209,6 @@ void Analysis::Run() {
         cumul->Scale(0.423 / cumul->GetMaximum()); // Scale the cumulative histogram to a maximum of 0.423 for normalization
     }
 
-    
-    std::vector<double> sum_N2(M_MAX, 0.0); // Accumulates the total number of pairs N2(M) across all events
-    std::vector<double> sum_N2_sq(M_MAX, 0.0); // Accumulates the square of N2(M) for variance calculation
-    double sum_mul = 0.0;
-    double sum_mul_sq = 0.0;
-    long long f2_valid_events = 0;
-    
     // Calculate centrality limits based on the cumulative distribution of PSD energy
     for (int i = 0; i < 4; ++i) {
         int bin = cumul->FindFirstBinAbove(fracs[i]); // Find the first bin in the cumulative histogram that exceeds the specified fraction (5%, 10%, 15%, or 20%)
@@ -246,6 +246,7 @@ void Analysis::Run() {
         hists.h2_TracksInFit_vs_PSD_all->Fill(pevent->energyPSDSelectedModules, pevent->nTracksFit);
         hists.h2_Tracks_vs_PSD_all->Fill(pevent->energyPSDSelectedModules, pevent->nTracksAll);
         
+        // LEVEL 1: EVENT CUTS
         if (EventCuts::PassVertexZ(pevent->VertexZ)) { // Check if the event passes the Vertex Z cut    
             nEvents_VertexZ++; // Increment the count of events passing the Vertex Z cut
             hists.h_Vz_cut->Fill(pevent->VertexZ); 
@@ -253,6 +254,7 @@ void Analysis::Run() {
             hists.h2_PSD_Peripheral_vs_Selected->Fill(pevent->energyPSDSelectedModules, pevent->energyPSDPeripheralModules);
             hists.h_PSDperipheral_all->Fill(pevent->energyPSDPeripheralModules);
             // Fill histograms for events passing the Vertex Z cut
+            
             if (pevent->energyPSDPeripheralModules > Config::PSD_per_cut) { // Check if the event passes the PSD peripheral energy cut
                 nEvents_PSD++;
                 hists.h_PSDperipheral_cut->Fill(pevent->energyPSDPeripheralModules);
@@ -260,6 +262,7 @@ void Analysis::Run() {
                 hists.h2_TracksInFit_vs_PSD_after_PSD->Fill(pevent->energyPSDSelectedModules, pevent->nTracksFit);
                 hists.h2_TracksRatio_all->Fill(pevent->nTracksAll, pevent->nTracksFit);
                 // Fill histograms for events passing the PSD peripheral energy cut
+                
                 if (EventCuts::PassTracksRatio(pevent->nTracksAll, pevent->nTracksFit)) {
                     nEvents_tracksratio++;
                     hists.h2_TracksRatio_cut->Fill(pevent->nTracksAll, pevent->nTracksFit);
@@ -276,11 +279,12 @@ void Analysis::Run() {
                         nEvents_after_centrality++;
                         nTracksFit_after_centrality += pevent->nTracksFit;
 
-                        std::vector<std::pair<double, double>> event_protons;
+                        std::vector<std::pair<double, double>> event_protons; //vector instead txt file
 
                         for (const auto& tracks : pevent->tracks) { // Loop over all tracks in the event
                             nTracks++;
 
+                            // LEVEL 2: TRACK QUALITY CUTS
                             unsigned int cl_dEdx = tracks.clustersdEdx; // Number of clusters used for dE/dx measurement
                             unsigned int cl_VTPC_sum = tracks.clustersVTPC1 + tracks.clustersVTPC2; // Sum of clusters in VTPC1 and VTPC2
                             unsigned int cl_Pot = tracks.clustersPotentialAll; // Number of potential clusters in all TPCs
@@ -351,37 +355,59 @@ void Analysis::Run() {
                                 rap_print_counter++; // Increment the counter for printed rapidity details
                             }
 
+                            // Fill histograms after quality cuts
+                            if (tracks.dEdx > 0) {
+                                hists.h_dedx_ptot_pos_qual->Fill(log_ptot, tracks.dEdx);
+                                hists.h2_px_py_pos_qual->Fill(tracks.px, tracks.py);
+                            } else if (tracks.dEdx < 0) {
+                                hists.h_dedx_ptot_neg_qual->Fill(log_ptot, std::abs(tracks.dEdx));
+                                hists.h2_px_py_neg_qual->Fill(tracks.px, tracks.py);
+                            }
+
+                            // LEVEL 3: TRACK MOMENTUM CUTS
                             bool pass_log_ptot = (log_ptot >= 0.55 && log_ptot <= 2.0); // Check if the logarithm of the total momentum is within the specified range for proton selection
                             bool pass_px = (tracks.px > -1.5 && tracks.px < 1.5); // Check if the track's x-component of momentum is within the specified range
                             bool pass_py = (tracks.py > -1.5 && tracks.py < 1.5); // Check if the track's y-component of momentum is within the specified range
-                            bool pass_rapidity = (std::abs(Y_CM_track) <= 0.75); // Check if the track's rapidity in the CM frame is within the specified range
+
+                            if (!pass_log_ptot || !pass_px || !pass_py) continue;
+
+                            // Fill histograms after momentum cuts
+                            if (tracks.dEdx > 0) {
+                                hists.h_dedx_ptot_pos_mom->Fill(log_ptot, tracks.dEdx);
+                                hists.h2_px_py_pos_mom->Fill(tracks.px, tracks.py);
+                            } else if (tracks.dEdx < 0) {
+                                hists.h_dedx_ptot_neg_mom->Fill(log_ptot, std::abs(tracks.dEdx));
+                                hists.h2_px_py_neg_mom->Fill(tracks.px, tracks.py);
+                            }
+
+                            // LEVEL 4: PROTON IDENTIFICATION CUTS PID
+                            if (tracks.dEdx <= 0) continue; // Only consider tracks with positive dE/dx values for proton selection
 
                             double upper_limit = bb_proton_dedx + 0.15 * delta_kp;
+                            if (tracks.dEdx > upper_limit) continue; // Drop track if above proton band
 
-                            if (tracks.dEdx > 0) { // Only consider tracks with positive dE/dx values for proton selection
-                                hists.h_dedx_ptot_pos->Fill(log_ptot, tracks.dEdx);
-                                bool pass_dedx = (tracks.dEdx <= upper_limit);
+                            nTracks_protons++; // Increment the proton track count
 
-                                if (pass_log_ptot && pass_px && pass_py && pass_dedx && pass_rapidity) { // If the track passes all selection criteria, fill the corresponding histograms and increment the proton track count
-                                    hists.h_dedx_ptot_protons->Fill(log_ptot, tracks.dEdx); // Fill the histogram for dE/dx vs log10(p_tot) for selected proton candidates
-                                    nTracks_protons++;
-                                    hists.h2_px_py_pos->Fill(tracks.px, tracks.py);
-                                    hists.h_Y_CM_tracks->Fill(Y_CM_track);
+                            // Fill histograms after PID
+                            hists.h_dedx_ptot_protons_id->Fill(log_ptot, tracks.dEdx);
+                            hists.h2_px_py_protons_id->Fill(tracks.px, tracks.py);
+                            hists.h_Y_CM_protons_id->Fill(Y_CM_track);
 
-                                    event_protons.push_back({tracks.px, tracks.py});
-                                }
+                            // LEVEL 5: RAPIDITY CUT  _rap (FINAL)
+                            bool pass_rapidity = (std::abs(Y_CM_track) <= 0.75); // Check if the track's rapidity in the CM frame is within the specified range
+                            if (!pass_rapidity) continue;
 
-                            } else if (tracks.dEdx < 0) { // Only consider tracks with negative dE/dx values for proton selection
-                                double abs_dedx = std::abs(tracks.dEdx);
-                                hists.h_dedx_ptot_neg->Fill(log_ptot, abs_dedx);
-                                bool pass_dedx = (abs_dedx <= upper_limit);
+                            // Fill histograms after rapidity cut
+                            hists.h_dedx_ptot_protons_rap->Fill(log_ptot, tracks.dEdx); // Fill the histogram for dE/dx vs log10(p_tot) for selected proton candidates
+                            hists.h2_px_py_protons_rap->Fill(tracks.px, tracks.py);
+                            hists.h_Y_CM_protons_rap->Fill(Y_CM_track);
 
-                                if (pass_log_ptot && pass_px && pass_py && pass_dedx && pass_rapidity) {
-                                    hists.h_dedx_ptot_neg_protons->Fill(log_ptot, abs_dedx);
-                                    hists.h2_px_py_neg->Fill(tracks.px, tracks.py);
-                                    hists.h_Y_CM_tracks->Fill(Y_CM_track);
-                                }
+                            // Optional export of final proton px and py to text file for inspection
+                            if (pxpyFile.is_open()) {
+                                pxpyFile << tracks.px << "\t" << tracks.py << "\n";
                             }
+
+                            event_protons.push_back({tracks.px, tracks.py}); // I don't use txt file as primary container because vector form is way faster
                         }
 
                         // F2(M) II
@@ -462,6 +488,10 @@ void Analysis::Run() {
     if (rapFile.is_open()) {
         rapFile.close();
     }
+    
+    if (pxpyFile.is_open()) {
+        pxpyFile.close();
+    }
 
     std::string f2TxtPath = baseFileName + "_F2_results.txt";
     std::ofstream f2File(f2TxtPath);
@@ -538,6 +568,7 @@ void Analysis::Run() {
 
     std::cout << "Analysis finished successfully!" << std::endl;
     std::cout << "=> Rapidity parameters saved to file: " << rapidityTxtPath << std::endl;
+    std::cout << "=> Proton px and py coordinates exported to file: " << pxpyTxtPath << std::endl;
 
     std::cout << "\n=== Centrality Stats ===" << std::endl;
     std::cout << "Events surviving 0-20% cut: " << nEvents_after_centrality << std::endl;

@@ -25,9 +25,9 @@
 #include "TError.h"
 #include "TFile.h"
 
-Analysis_mixed::Analysis_mixed(const std::string& fileListPath) : fileList(fileListPath) {}
+Analysis_mixed::Analysis_mixed(const std::string& fileListPath) : fileList(fileListPath) {} 
 
-void Analysis_mixed::LoadLibraries() {
+void Analysis_mixed::LoadLibraries() { 
     static bool initialized = false;
     if (!initialized) {
         std::cout << "Initializing libraries..." << std::endl;
@@ -65,6 +65,13 @@ void Analysis_mixed::Run() {
     ss_time << std::put_time(now_tm, "%H_%M_%S_%d_%m_%Y");
 
     std::string baseFileName = outputDir + "/" + ss_time.str() + "_EventXeLaMag_MIXED_" + std::to_string(Config::BeamMomentum) + "A";
+
+    // Open a text file to export mixed proton px and py for inspection if needed
+    std::string pxpyTxtPath = baseFileName + "_protons_pxpy.txt";
+    std::ofstream pxpyFile(pxpyTxtPath);
+    if (pxpyFile.is_open()) {
+        pxpyFile << "px\tpy\n";
+    }
 
     TChain chain("event_tree");
     std::ifstream file(fileList);
@@ -125,7 +132,7 @@ void Analysis_mixed::Run() {
     delete cumul_raw;
     std::cout << ">> Dynamic 20% centrality threshold calculated as: " << dynamic_limit_20 << " GeV\n" << std::endl;
 
-    // Mixer settings
+    // Mixer settings create
     std::cout << "Step 2: Starting Event Mixer..." << std::endl;
     std::string mixerCutsPath = outputDir + "/mixer_cuts.txt";
     std::ofstream mcf(mixerCutsPath);
@@ -235,11 +242,11 @@ void Analysis_mixed::Run() {
             double Y_LAB_track = 0.5 * std::log((E_track + t1.pz) / (E_track - t1.pz));
             double Y_CM_track = Y_LAB_track - Y_beam_shift;
 
-            // Mixed events contain only selected protons
-            hists.h_dedx_ptot_pos->Fill(log_ptot, t1.dEdx);
-            hists.h_dedx_ptot_protons->Fill(log_ptot, t1.dEdx);
-            hists.h2_px_py_pos->Fill(t1.px, t1.py);
-            hists.h_Y_CM_tracks->Fill(Y_CM_track);
+            // Mixed events contain only final selected protons
+            // Replaced the old histogram pointers with the new ones ending in "_rap"
+            hists.h_dedx_ptot_protons_rap->Fill(log_ptot, t1.dEdx);
+            hists.h2_px_py_protons_rap->Fill(t1.px, t1.py);
+            hists.h_Y_CM_protons_rap->Fill(Y_CM_track);
             
             unsigned int cl_VTPC_sum = t1.clustersVTPC1 + t1.clustersVTPC2;
             unsigned int cl_Pot = t1.clustersPotentialAll;
@@ -252,6 +259,11 @@ void Analysis_mixed::Run() {
             hists.h_clusters_Ratio_cut->Fill(ratio);
             hists.h_clusters_PotAll_cut->Fill(cl_Pot);
             hists.h2_bx_by_cut->Fill(t1.bx, t1.by);
+
+            // Optional export of mixed proton px and py to text file for inspection
+            if (pxpyFile.is_open()) {
+                pxpyFile << t1.px << "\t" << t1.py << "\n";
+            }
 
             for (size_t j = i + 1; j < mixed_event.tracks.size(); ++j) {
                 const auto& t2 = mixed_event.tracks[j];
@@ -273,6 +285,10 @@ void Analysis_mixed::Run() {
             sum_N2[m] += event_N2[m];
             sum_N2_sq[m] += event_N2[m] * event_N2[m];
         }
+    }
+
+    if (pxpyFile.is_open()) {
+        pxpyFile.close();
     }
 
     // Save mixed results to TXT
@@ -315,6 +331,7 @@ void Analysis_mixed::Run() {
         }
         f2File.close();
         std::cout << "=> F2(M) MIXED calculation finished! Results saved to: " << f2TxtPath << std::endl;
+        std::cout << "=> Mixed proton px and py coordinates exported to file: " << pxpyTxtPath << std::endl;
     }
 
     // Generate histograms for mixed events

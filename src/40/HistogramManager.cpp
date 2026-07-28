@@ -44,16 +44,27 @@ HistogramManager::HistogramManager() {
     h2_bx_by_all = new TH2F("h2_bx_by_all", "b_{x} vs b_{y} (All); b_{x} [cm]; b_{y} [cm]", 200, -10.0, 10.0, 200, -10.0, 10.0);
     h2_bx_by_cut = new TH2F("h2_bx_by_cut", "b_{x} vs b_{y} (Cut); b_{x} [cm]; b_{y} [cm]", 200, -10.0, 10.0, 200, -10.0, 10.0);
     
-    h_dedx_ptot_pos = new TH2F("h_dedx_ptot_pos", "dE/dx vs log(p_tot) positive tracks; Log_{10}(p_{tot} / [GeV/c]); dE/dx (MIP)", 300, -0.6, 2.2, 300, 0.4, 2.0);
-    h_dedx_ptot_neg = new TH2F("h_dedx_ptot_neg", "dE/dx vs log(p_tot) negative tracks; Log_{10}(p_{tot} / [GeV/c]); dE/dx (MIP)", 300, -0.6, 2.2, 300, 0.4, 2.0);
+    // --- STAGE 1: QUALITY CUTS ---
+    h_dedx_ptot_pos_qual = new TH2F("h_dedx_ptot_pos_qual", "dE/dx vs log(p_tot) pos (After Quality); Log_{10}(p_{tot} / [GeV/c]); dE/dx (MIP)", 300, -0.6, 2.2, 300, 0.4, 2.0);
+    h_dedx_ptot_neg_qual = new TH2F("h_dedx_ptot_neg_qual", "dE/dx vs log(p_tot) neg (After Quality); Log_{10}(p_{tot} / [GeV/c]); dE/dx (MIP)", 300, -0.6, 2.2, 300, 0.4, 2.0);
+    h2_px_py_pos_qual = new TH2F("h2_px_py_pos_qual", "Positive charge p_{y} vs p_{x} (After Quality); p_{x} [GeV/c]; p_{y} [GeV/c]", 300, -1.5, 1.5, 300, -1.5, 1.5);
+    h2_px_py_neg_qual = new TH2F("h2_px_py_neg_qual", "Negative charge p_{y} vs p_{x} (After Quality); p_{x} [GeV/c]; p_{y} [GeV/c]", 300, -1.5, 1.5, 300, -1.5, 1.5);
     
-    h_dedx_ptot_protons = new TH2F("h_dedx_ptot_protons", "dE/dx vs log(p_tot) selected protons; Log_{10}(p_{tot} / [GeV/c]); dE/dx (MIP)", 300, -0.6, 2.2, 300, 0.4, 2.0);
-    h_dedx_ptot_neg_protons = new TH2F("h_dedx_ptot_neg_protons", "dE/dx vs log(p_tot) selected anti-protons; Log_{10}(p_{tot} / [GeV/c]); dE/dx (MIP)", 300, -0.6, 2.2, 300, 0.4, 2.0);
-    
-    h2_px_py_pos = new TH2F("h2_px_py_pos", "Positive charge p_{y} vs p_{x}; p_{x} [GeV/c]; p_{y} [GeV/c]", 300, -1.5, 1.5, 300, -1.5, 1.5);
-    h2_px_py_neg = new TH2F("h2_px_py_neg", "Negative charge p_{y} vs p_{x}; p_{x} [GeV/c]; p_{y} [GeV/c]", 300, -1.5, 1.5, 300, -1.5, 1.5);
-    
-    h_Y_CM_tracks = new TH1F("h_Y_CM_tracks", "Selected Positive and Negative tracks y^{CM}_{track}; y^{CM}_{track}; counts", 200, -3.0, 3.0);
+    // --- STAGE 2: MOMENTUM CUTS ---
+    h_dedx_ptot_pos_mom = new TH2F("h_dedx_ptot_pos_mom", "dE/dx vs log(p_tot) pos (After Momentum); Log_{10}(p_{tot} / [GeV/c]); dE/dx (MIP)", 300, -0.6, 2.2, 300, 0.4, 2.0);
+    h_dedx_ptot_neg_mom = new TH2F("h_dedx_ptot_neg_mom", "dE/dx vs log(p_tot) neg (After Momentum); Log_{10}(p_{tot} / [GeV/c]); dE/dx (MIP)", 300, -0.6, 2.2, 300, 0.4, 2.0);
+    h2_px_py_pos_mom = new TH2F("h2_px_py_pos_mom", "Positive charge p_{y} vs p_{x} (After Momentum); p_{x} [GeV/c]; p_{y} [GeV/c]", 300, -1.5, 1.5, 300, -1.5, 1.5);
+    h2_px_py_neg_mom = new TH2F("h2_px_py_neg_mom", "Negative charge p_{y} vs p_{x} (After Momentum); p_{x} [GeV/c]; p_{y} [GeV/c]", 300, -1.5, 1.5, 300, -1.5, 1.5);
+
+    // --- STAGE 3: PROTON ID CUTS ---
+    h_dedx_ptot_protons_id = new TH2F("h_dedx_ptot_protons_id", "dE/dx vs log(p_tot) protons (After PID); Log_{10}(p_{tot} / [GeV/c]); dE/dx (MIP)", 300, -0.6, 2.2, 300, 0.4, 2.0);
+    h2_px_py_protons_id = new TH2F("h2_px_py_protons_id", "Protons p_{y} vs p_{x} (After PID); p_{x} [GeV/c]; p_{y} [GeV/c]", 300, -1.5, 1.5, 300, -1.5, 1.5);
+    h_Y_CM_protons_id = new TH1F("h_Y_CM_protons_id", "y^{CM}_{track} protons (After PID); y^{CM}_{track}; counts", 200, -3.0, 3.0);
+
+    // --- STAGE 4: RAPIDITY CUT (FINAL) ---
+    h_dedx_ptot_protons_rap = new TH2F("h_dedx_ptot_protons_rap", "dE/dx vs log(p_tot) protons (Final Rapidity); Log_{10}(p_{tot} / [GeV/c]); dE/dx (MIP)", 300, -0.6, 2.2, 300, 0.4, 2.0);
+    h2_px_py_protons_rap = new TH2F("h2_px_py_protons_rap", "Protons p_{y} vs p_{x} (Final Rapidity); p_{x} [GeV/c]; p_{y} [GeV/c]", 300, -1.5, 1.5, 300, -1.5, 1.5);
+    h_Y_CM_protons_rap = new TH1F("h_Y_CM_protons_rap", "y^{CM}_{track} protons (Final Rapidity); y^{CM}_{track}; counts", 200, -3.0, 3.0);
 
     TH2F* h2_array[] = {h2_Tracks_vs_PSD_all, h2_Tracks_vs_PSD_cut, 
                         h2_PSD_Peripheral_vs_Selected, h2_PSD_Peripheral_vs_Selected_cut, 
@@ -61,7 +72,11 @@ HistogramManager::HistogramManager() {
                         h2_TracksInFit_vs_PSD_all, h2_TracksInFit_vs_PSD_after_PSD,
                         h2_TracksInFit_vs_PSD_after_Vz, h2_TracksInFit_vs_PSD_cut, 
                         h2_TracksInFit_vs_PSD_Central,
-                        h2_bx_by_all, h2_bx_by_cut};
+                        h2_bx_by_all, h2_bx_by_cut,
+                        h_dedx_ptot_pos_qual, h_dedx_ptot_neg_qual, h2_px_py_pos_qual, h2_px_py_neg_qual,
+                        h_dedx_ptot_pos_mom, h_dedx_ptot_neg_mom, h2_px_py_pos_mom, h2_px_py_neg_mom,
+                        h_dedx_ptot_protons_id, h2_px_py_protons_id,
+                        h_dedx_ptot_protons_rap, h2_px_py_protons_rap};
     
     for (auto* h2 : h2_array) {
         h2->SetOption("COLZ");
@@ -106,13 +121,13 @@ HistogramManager::~HistogramManager() {
     delete h_clusters_All_all; delete h_clusters_All_cut;
     delete h_clusters_Ratio_all; delete h_clusters_Ratio_cut;
     delete h2_bx_by_all; delete h2_bx_by_cut;
-    delete h_dedx_ptot_pos;
-    delete h_dedx_ptot_neg;
-    delete h_dedx_ptot_protons; 
-    delete h_dedx_ptot_neg_protons;
-    delete h2_px_py_pos;
-    delete h2_px_py_neg;
-    delete h_Y_CM_tracks;
+    
+    // Clean up hierarchical histograms
+    delete h_dedx_ptot_pos_qual; delete h_dedx_ptot_neg_qual; delete h2_px_py_pos_qual; delete h2_px_py_neg_qual;
+    delete h_dedx_ptot_pos_mom; delete h_dedx_ptot_neg_mom; delete h2_px_py_pos_mom; delete h2_px_py_neg_mom;
+    delete h_dedx_ptot_protons_id; delete h2_px_py_protons_id; delete h_Y_CM_protons_id;
+    delete h_dedx_ptot_protons_rap; delete h2_px_py_protons_rap; delete h_Y_CM_protons_rap;
+
     delete hist_events;
     delete hist_tracks;
 }
