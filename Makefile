@@ -10,6 +10,18 @@ ROOTCFLAGS = $(shell root-config --cflags)
 ROOTLIBS = $(shell root-config --libs)
 CXXFLAGS += $(ROOTCFLAGS)
 
+# --- LINKING LIBRARIES ---
+# Direct path to PPSS shared libraries
+PPSS_LIBS = $(PPSS_TOOLS_PATH)/Tools/Event.so \
+            $(PPSS_TOOLS_PATH)/Tools/CutsMap.noDict.so \
+            $(PPSS_TOOLS_PATH)/Tools/EventMixer.noDict.so \
+            $(PPSS_TOOLS_PATH)/Tools/EventXeLa.so \
+            $(PPSS_TOOLS_PATH)/Tools/EventXeLaMag.so
+
+# LDFLAGS contains tool libraries and Boost libraries
+LDFLAGS = $(PPSS_LIBS) -lboost_context -lboost_coroutine
+# ---------------------------------------
+
 # Directories
 SRC_DIR = src
 CORE_DIR = src/core
@@ -21,42 +33,49 @@ BUILD_DIR = build
 # External source files to compile along
 BETHE_BLOCH_SRC = $(PPSS_TOOLS_PATH)/BetheBloch/src/BetheBlochWrapper.cc
 
-# Source files (find all .cpp files in specified directories)
-SRCS = $(wildcard $(SRC_DIR)/*.cpp) \
-       $(wildcard $(CORE_DIR)/*.cpp) \
-       $(wildcard $(DIR_40)/*.cpp) \
-       $(wildcard $(DIR_75)/*.cpp)
+# 1. Common files
+COMMON_SRCS = $(filter-out $(DIR_40)/main%.cpp $(DIR_40)/Analysis%.cpp, \
+              $(wildcard $(SRC_DIR)/*.cpp) \
+              $(wildcard $(CORE_DIR)/*.cpp) \
+              $(wildcard $(DIR_40)/*.cpp) \
+              $(wildcard $(DIR_75)/*.cpp))
 
-# Object files (placed in folder, including external wrapper)
-OBJS = $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(notdir $(SRCS))) $(BUILD_DIR)/BetheBlochWrapper.o
+COMMON_OBJS = $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(notdir $(COMMON_SRCS))) $(BUILD_DIR)/BetheBlochWrapper.o
 
-# Tell Make where to look for source files
+# 2. Executable specific objects
+DATA_OBJS = $(BUILD_DIR)/main.o $(BUILD_DIR)/Analysis.o
+MIXED_OBJS = $(BUILD_DIR)/main_mixed.o $(BUILD_DIR)/Analysis_mixed.o
+COMPARE_OBJS = $(BUILD_DIR)/main_compare.o
+
 VPATH = $(SRC_DIR):$(CORE_DIR):$(DIR_40):$(DIR_75)
 
-# Main executable name
-TARGET = analysis
+# 3. Targets
+TARGET_DATA = analysis
+TARGET_MIXED = run_mixed
+TARGET_COMPARE = compare_f2
 
-# Default rule
-all: $(BUILD_DIR) $(TARGET)
+all: $(BUILD_DIR) $(TARGET_DATA) $(TARGET_MIXED) $(TARGET_COMPARE)
 
-# Create build directory if it doesn't exist
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
-# Link object files to create executable
-$(TARGET): $(OBJS)
-	$(CXX) $(OBJS) $(ROOTLIBS) -o $(TARGET)
+# Added $(LDFLAGS) at the end of linking commands
+$(TARGET_DATA): $(COMMON_OBJS) $(DATA_OBJS)
+	$(CXX) $^ $(ROOTLIBS) $(LDFLAGS) -o $@
 
-# Universal rule to compile any .cpp file found via VPATH
+$(TARGET_MIXED): $(COMMON_OBJS) $(MIXED_OBJS)
+	$(CXX) $^ $(ROOTLIBS) $(LDFLAGS) -o $@
+
+$(TARGET_COMPARE): $(COMMON_OBJS) $(COMPARE_OBJS)
+	$(CXX) $^ $(ROOTLIBS) $(LDFLAGS) -o $@
+
 $(BUILD_DIR)/%.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# Specific rule to compile external BetheBlochWrapper.cc
 $(BUILD_DIR)/BetheBlochWrapper.o: $(BETHE_BLOCH_SRC)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# Clean up build files
 clean:
-	rm -rf $(BUILD_DIR) $(TARGET)
+	rm -rf $(BUILD_DIR) $(TARGET_DATA) $(TARGET_MIXED) $(TARGET_COMPARE)
 
 .PHONY: all clean

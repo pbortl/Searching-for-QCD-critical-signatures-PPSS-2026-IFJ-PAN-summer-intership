@@ -8,6 +8,7 @@
 #include <functional>
 #include <vector>
 #include <string>
+#include <iomanip>
 
 #include "TCanvas.h"
 #include "TF1.h"
@@ -19,6 +20,78 @@
 #include "TPaveText.h"
 #include "TText.h"
 #include "TGraphErrors.h"
+#include "TAxis.h"
+
+namespace {
+    void DrawTracksRatioLines() {
+        TLine lineT1(Config::P1_x, Config::P1_y, Config::P2_x, Config::P2_y);
+        lineT1.SetLineColor(kRed); lineT1.SetLineWidth(2); lineT1.DrawClone("SAME");
+        
+        TLine lineT2(Config::P2_x, Config::P1_y, Config::P2_x, Config::P2_y);
+        lineT2.SetLineColor(kRed); lineT2.SetLineWidth(2); lineT2.DrawClone("SAME");
+        
+        TLine lineT3(Config::P1_x, Config::P1_y, Config::P2_x, Config::P1_y);
+        lineT3.SetLineColor(kRed); lineT3.SetLineWidth(2); lineT3.DrawClone("SAME");
+
+        double slope2 = (Config::P4_y - Config::P3_y) / (Config::P4_x - Config::P3_x);
+        double end_x2 = Config::P3_x + (350.0 - Config::P3_y) / slope2;
+        double end_y2 = 350.0;
+
+        if (end_x2 > 1500.0) {
+            end_x2 = 1500.0;
+            end_y2 = Config::P3_y + slope2 * (1500.0 - Config::P3_x);
+        }
+        
+        TLine lineVector(Config::P3_x, Config::P3_y, end_x2, end_y2);
+        lineVector.SetLineColor(kRed); lineVector.SetLineWidth(2); lineVector.DrawClone("SAME");
+    }
+
+    void DrawCentralityLines1D(double yMax, const std::vector<double>& cent_limits, const std::vector<int>& cent_events, int total_evts) {
+        for(int i = 0; i < 4; i++) {
+            if(cent_limits[i] > 0) {
+                TLine line(cent_limits[i], 0, cent_limits[i], yMax);
+                line.SetLineColor(kRed);
+                line.SetLineStyle(2); 
+                line.SetLineWidth(2);
+                line.DrawClone("SAME");
+            }
+        }
+        
+        TPaveText pt(0.65, 0.35, 0.85, 0.65, "NDC");
+        pt.SetFillColor(kWhite);
+        pt.SetBorderSize(1);
+        pt.SetTextAlign(12);
+        pt.AddText(Form("total evets: %d", total_evts));
+        pt.AddText(Form("0-5%%: %d", cent_events[0]));
+        pt.AddText(Form("5-10%%: %d", cent_events[1] - cent_events[0]));
+        pt.AddText(Form("10-15%%: %d", cent_events[2] - cent_events[1]));
+        pt.AddText(Form("15-20%%: %d", cent_events[3] - cent_events[2]));
+        pt.DrawClone("SAME");
+    }
+
+    void DrawCentralityLines2D(double yMax, const std::vector<double>& cent_limits, const std::vector<int>& cent_events, int total_evts) {
+        for(int i = 0; i < 4; i++) {
+            if(cent_limits[i] > 0) {
+                TLine line(cent_limits[i], 0, cent_limits[i], yMax);
+                line.SetLineColor(kRed);
+                line.SetLineStyle(2); 
+                line.SetLineWidth(2);
+                line.DrawClone("SAME");
+            }
+        }
+
+        TPaveText pt(0.65, 0.65, 0.88, 0.88, "NDC");
+        pt.SetFillColor(kWhite);
+        pt.SetBorderSize(1);
+        pt.SetTextAlign(12);
+        pt.AddText(Form("total evets: %d", total_evts));
+        pt.AddText(Form("0-5%%: %d", cent_events[0]));
+        pt.AddText(Form("5-10%%: %d", cent_events[1] - cent_events[0]));
+        pt.AddText(Form("10-15%%: %d", cent_events[2] - cent_events[1]));
+        pt.AddText(Form("15-20%%: %d", cent_events[3] - cent_events[2]));
+        pt.DrawClone("SAME");
+    }
+}
 
 void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFileName, const std::vector<double>& cent_limits, const std::vector<int>& cent_events) {
     std::cout << "Generating multi-page PDF and saving to ROOT files..." << std::endl;
@@ -66,102 +139,18 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
     hists.hist_events->SetTitle(("nb of events after each event cut" + suffix).c_str());
     hists.hist_tracks->SetTitle(("(total) nb of tracks after each track cut" + suffix).c_str());
 
-    TF1 *gaussFit = new TF1("gaussFit", "gaus", -606, -600);
-    gaussFit->SetParameters(100000, Config::z_peak, 1.0);
-    hists.h_Vz_all->Fit(gaussFit, "R0");
+    TF1 gaussFit("gaussFit", "gaus", -606, -600);
+    gaussFit.SetParameters(100000, Config::z_peak, 1.0);
+    hists.h_Vz_all->Fit(&gaussFit, "R0");
 
     std::ofstream txtOut(txtFilePath);
     if (txtOut.is_open()) {
         txtOut << "--- GAUSSIAN FIT RESULTS (VertexZ) ---\n";
-        txtOut << "Amplitude: " << gaussFit->GetParameter(0) << "\n";
-        txtOut << "Mean:      " << gaussFit->GetParameter(1) << " cm\n";
-        txtOut << "Sigma:     " << gaussFit->GetParameter(2) << " cm\n";
+        txtOut << "Amplitude: " << gaussFit.GetParameter(0) << "\n";
+        txtOut << "Mean:      " << gaussFit.GetParameter(1) << " cm\n";
+        txtOut << "Sigma:     " << gaussFit.GetParameter(2) << " cm\n";
         txtOut.close();
     }
-
-    auto drawTracksRatioLines = [&]() {
-        TLine *lineT1 = new TLine(Config::P1_x, Config::P1_y, Config::P2_x, Config::P2_y);
-        lineT1->SetLineColor(kRed); lineT1->SetLineWidth(2); lineT1->Draw("SAME");
-        TLine *lineT2 = new TLine(Config::P2_x, Config::P1_y, Config::P2_x, Config::P2_y);
-        lineT2->SetLineColor(kRed); lineT2->SetLineWidth(2); lineT2->Draw("SAME");
-        TLine *lineT3 = new TLine(Config::P1_x, Config::P1_y, Config::P2_x, Config::P1_y);
-        lineT3->SetLineColor(kRed); lineT3->SetLineWidth(2); lineT3->Draw("SAME");
-
-        double slope2 = (Config::P4_y - Config::P3_y) / (Config::P4_x - Config::P3_x);
-        double end_x2 = Config::P3_x + (350.0 - Config::P3_y) / slope2;
-        double end_y2 = 350.0;
-
-        if (end_x2 > 1500.0) {
-            end_x2 = 1500.0;
-            end_y2 = Config::P3_y + slope2 * (1500.0 - Config::P3_x);
-        }
-        TLine *lineVector = new TLine(Config::P3_x, Config::P3_y, end_x2, end_y2);
-        lineVector->SetLineColor(kRed); lineVector->SetLineWidth(2); lineVector->Draw("SAME");
-    };
-
-    auto drawCentralityLines1D = [&]() {
-        double yMax = hists.h_PSD_T2->GetMaximum();
-        for(int i=0; i<4; i++) {
-            if(cent_limits[i] > 0) {
-                TLine *line = new TLine(cent_limits[i], 0, cent_limits[i], yMax);
-                line->SetLineColor(kRed);
-                line->SetLineStyle(2); 
-                line->SetLineWidth(2);
-                line->Draw("SAME");
-            }
-        }
-        
-        TPaveText *pt = new TPaveText(0.65, 0.35, 0.85, 0.65, "NDC");
-        pt->SetFillColor(kWhite);
-        pt->SetBorderSize(1);
-        pt->SetTextAlign(12);
-        
-        int total_evts = hists.h_PSD_T2->GetEntries();
-        pt->AddText(Form("total evets: %d", total_evts));
-        
-        int n0_5 = cent_events[0];
-        int n5_10 = cent_events[1] - cent_events[0];
-        int n10_15 = cent_events[2] - cent_events[1];
-        int n15_20 = cent_events[3] - cent_events[2];
-        
-        pt->AddText(Form("0-5%%: %d", n0_5));
-        pt->AddText(Form("5-10%%: %d", n5_10));
-        pt->AddText(Form("10-15%%: %d", n10_15));
-        pt->AddText(Form("15-20%%: %d", n15_20));
-        pt->Draw("SAME");
-    };
-
-    auto drawCentralityLines2D = [&]() {
-        double yMax = hists.h2_TracksInFit_vs_PSD_cut->GetYaxis()->GetXmax();
-        for(int i=0; i<4; i++) {
-            if(cent_limits[i] > 0) {
-                TLine *line = new TLine(cent_limits[i], 0, cent_limits[i], yMax);
-                line->SetLineColor(kRed);
-                line->SetLineStyle(2); 
-                line->SetLineWidth(2);
-                line->Draw("SAME");
-            }
-        }
-
-        TPaveText *pt = new TPaveText(0.65, 0.65, 0.88, 0.88, "NDC");
-        pt->SetFillColor(kWhite);
-        pt->SetBorderSize(1);
-        pt->SetTextAlign(12);
-        
-        int total_evts = hists.h_PSD_T2->GetEntries();
-        pt->AddText(Form("total evets: %d", total_evts));
-        
-        int n0_5 = cent_events[0];
-        int n5_10 = cent_events[1] - cent_events[0];
-        int n10_15 = cent_events[2] - cent_events[1];
-        int n15_20 = cent_events[3] - cent_events[2];
-        
-        pt->AddText(Form("0-5%%: %d", n0_5));
-        pt->AddText(Form("5-10%%: %d", n5_10));
-        pt->AddText(Form("10-15%%: %d", n10_15));
-        pt->AddText(Form("15-20%%: %d", n15_20));
-        pt->Draw("SAME");
-    };
 
     TCanvas *c = new TCanvas("c", "Plots", 1000, 700);
     c->Print((pdfFilePath + "[").c_str());
@@ -208,8 +197,8 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
     printPage(hists.h2_PSD_Peripheral_vs_Selected, "COLZ", false, true, nullptr, fOut);
     printPage(hists.h2_PSD_Peripheral_vs_Selected_cut, "COLZ", false, true, nullptr, fOut);
 
-    printPage(hists.h2_TracksRatio_all, "COLZ", false, true, drawTracksRatioLines, fOut);
-    printPage(hists.h2_TracksRatio_cut, "COLZ", false, true, drawTracksRatioLines, fOut);
+    printPage(hists.h2_TracksRatio_all, "COLZ", false, true, [](){ DrawTracksRatioLines(); }, fOut);
+    printPage(hists.h2_TracksRatio_cut, "COLZ", false, true, [](){ DrawTracksRatioLines(); }, fOut);
 
     printPage(hists.h_clusters_VTPC_sum_all, "HIST", true, false, nullptr, fOut);
     printPage(hists.h_clusters_VTPC_sum_cut, "HIST", true, false, nullptr, fOut);
@@ -227,10 +216,13 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
     printPage(hists.h2_TracksInFit_vs_PSD_after_Vz, "COLZ", false, true, nullptr, fOut);
     printPage(hists.h2_TracksInFit_vs_PSD_after_PSD, "COLZ", false, true, nullptr, fOut);
     
+    int total_evts = hists.h_PSD_T2->GetEntries();
+    double yMax1D = hists.h_PSD_T2->GetMaximum();
     hists.h_PSD_T2->SetFillColor(kAzure+1);
-    printPage(hists.h_PSD_T2, "HIST", false, false, drawCentralityLines1D, fOut);
+    printPage(hists.h_PSD_T2, "HIST", false, false, [&](){ DrawCentralityLines1D(yMax1D, cent_limits, cent_events, total_evts); }, fOut);
     
-    printPage(hists.h2_TracksInFit_vs_PSD_cut, "COLZ", false, true, drawCentralityLines2D, fOut);
+    double yMax2D = hists.h2_TracksInFit_vs_PSD_cut->GetYaxis()->GetXmax();
+    printPage(hists.h2_TracksInFit_vs_PSD_cut, "COLZ", false, true, [&](){ DrawCentralityLines2D(yMax2D, cent_limits, cent_events, total_evts); }, fOut);
     printPage(hists.h2_TracksInFit_vs_PSD_Central, "COLZ", false, true, nullptr, fOut);
 
     printPage(hists.h2_bx_by_all, "COLZ", false, true, nullptr, fOut);
@@ -301,7 +293,7 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
     
     hists.h2_px_py_pos->SetTitle(("Positive charge p_{y} vs p_{x} " + suffix + "; p_{x} [GeV/c]; p_{y} [GeV/c]").c_str());
     hists.h2_px_py_neg->SetTitle(("Negative charge p_{y} vs p_{x} " + suffix + "; p_{x} [GeV/c]; p_{y} [GeV/c]").c_str());
-    hists.h_Y_CM_tracks->SetTitle(("Selected Poxitive and Negative tracks y^{CM}_{track} " + suffix + "; y^{CM}_{track}; counts").c_str());
+    hists.h_Y_CM_tracks->SetTitle(("Selected Positive and Negative tracks y^{CM}_{track} " + suffix + "; y^{CM}_{track}; counts").c_str());
 
     printPage(hists.h_dedx_ptot_protons, "COLZ", false, true, drawBBCurves, fOutProtons);
     printPage(hists.h_dedx_ptot_neg_protons, "COLZ", false, true, drawBBCurves, fOutProtons);
@@ -312,16 +304,13 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
     hists.h_Y_CM_tracks->SetFillColor(kBlue-7);
     printPage(hists.h_Y_CM_tracks, "HIST", false, false, nullptr, fOutProtons);
 
-    // =========================================================================
-    // --- F2(M) PLOTTING FROM TXT ---
-    // =========================================================================
     std::string f2TxtPath = baseFileName + "_F2_results.txt";
     std::ifstream f2FileIn(f2TxtPath);
     TGraphErrors* gr_F2 = nullptr;
 
     if (f2FileIn.is_open()) {
         std::string header;
-        std::getline(f2FileIn, header); // Pomijamy naglowek
+        std::getline(f2FileIn, header);
 
         gr_F2 = new TGraphErrors();
         gr_F2->SetName("g_F2_M");
@@ -331,7 +320,6 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
         double F2_M, err_F2_M, avg_N2, err_N2, avg_mul, err_mul;
         int pointIdx = 0;
 
-        // Czytamy dane do momentu konca pliku
         while (f2FileIn >> M >> F2_M >> err_F2_M >> avg_N2 >> err_N2 >> avg_mul >> err_mul) {
             double M2 = M * M;
             gr_F2->SetPoint(pointIdx, M2, F2_M);
@@ -340,7 +328,6 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
         }
         f2FileIn.close();
 
-        // Jesli odczytano jakiekolwiek dane, dodajemy nowa strone do PDF
         if (pointIdx > 0) {
             c->Clear();
             gPad->SetLogy(0);
@@ -348,13 +335,26 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
             gPad->SetGrid(1, 1);
             gPad->SetBottomMargin(0.12);
             gPad->SetLeftMargin(0.12);
+            
+            c->SetLogx(1);
 
             gr_F2->SetMarkerStyle(20);
-            gr_F2->SetMarkerSize(0.8);
+            gr_F2->SetMarkerSize(0.6); 
             gr_F2->SetMarkerColor(kBlue+2);
             gr_F2->SetLineColor(kBlue+2);
+            gr_F2->SetLineWidth(1); 
             
-            gr_F2->Draw("AP");
+            gr_F2->GetHistogram()->GetXaxis()->SetLimits(1.0, 25000.0);
+
+            TAxis* xAxis = gr_F2->GetXaxis();
+            xAxis->SetMoreLogLabels(kFALSE);
+            xAxis->SetNoExponent(kTRUE);
+            xAxis->SetMaxDigits(4);
+            xAxis->SetLabelSize(0.035);
+            
+            gStyle->SetEndErrorSize(3);
+            
+            gr_F2->Draw("AP"); 
             c->Update();
             c->Print(pdfFilePath.c_str());
             
@@ -362,9 +362,7 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
             gr_F2->Write("F2_M_Graph");
         }
     }
-    // =========================================================================
 
-    // Zamkniecie pliku PDF
     c->Print((pdfFilePath + "]").c_str());
     
     delete bbElectron; delete bbPion; delete bbKaon; delete bbProton; delete bbDeuteron;
@@ -417,4 +415,190 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
     fOutProtons->Close();
 
     std::cout << "Successfully saved all plots into: " << pdfFilePath << std::endl;
+}
+
+void Plotter::DrawDeltaF2(const std::string& dataFile, const std::string& mixedFile, const std::string& outputBaseName) {
+    gStyle->SetOptTitle(1);
+    gStyle->SetPadGridX(kTRUE);
+    gStyle->SetPadGridY(kTRUE);
+    gStyle->SetEndErrorSize(3);
+
+    std::ifstream inData(dataFile);
+    std::ifstream inMixed(mixedFile);
+
+    if (!inData.is_open() || !inMixed.is_open()) {
+        std::cerr << "Error: Cannot open one of the TXT files!" << std::endl;
+        return;
+    }
+
+    std::string header;
+    std::getline(inData, header);
+    std::getline(inMixed, header);
+
+    TGraphErrors* grData = new TGraphErrors();
+    grData->SetName("g_Data_F2");
+    
+    TGraphErrors* grMixed = new TGraphErrors();
+    grMixed->SetName("g_Mixed_F2");
+
+    TGraphErrors* grDelta = new TGraphErrors();
+    grDelta->SetName("g_Delta_F2");
+
+    int M_d, M_m;
+    double F2_d, errF2_d, avgN2_d, errN2_d, avgMul_d, errMul_d;
+    double F2_m, errF2_m, avgN2_m, errN2_m, avgMul_m, errMul_m;
+    int pt = 0;
+
+    std::cout << "\nReading data for comparison and delta plot..." << std::endl;
+
+    while ((inData >> M_d >> F2_d >> errF2_d >> avgN2_d >> errN2_d >> avgMul_d >> errMul_d) &&
+           (inMixed >> M_m >> F2_m >> errF2_m >> avgN2_m >> errN2_m >> avgMul_m >> errMul_m)) {
+        
+        if (M_d != M_m) {
+            std::cerr << "Error: M step mismatch between files!" << std::endl;
+            break;
+        }
+
+        double M2 = M_d * M_d;
+
+        grData->SetPoint(pt, M2, F2_d);
+        grData->SetPointError(pt, 0.0, errF2_d);
+
+        grMixed->SetPoint(pt, M2, F2_m);
+        grMixed->SetPointError(pt, 0.0, errF2_m);
+
+        double delta_val = F2_d - F2_m;
+        double delta_err = std::sqrt(errF2_d * errF2_d + errF2_m * errF2_m);
+        grDelta->SetPoint(pt, M2, delta_val);
+        grDelta->SetPointError(pt, 0.0, delta_err);
+
+        pt++;
+    }
+
+    inData.close();
+    inMixed.close();
+
+    TCanvas* c1 = new TCanvas("c1", "F2 Comparison and Delta", 1000, 700);
+    std::string pdfOut = outputBaseName + "_F2_Comparison.pdf";
+    
+    c1->Print((pdfOut + "[").c_str());
+
+    // ==========================================
+    // PAGE 1: Comparison Plot
+    // ==========================================
+    c1->Clear();
+    gPad->SetBottomMargin(0.12);
+    gPad->SetLeftMargin(0.12);
+    gPad->SetLogx(1);
+    gPad->SetGridx(1);
+    gPad->SetGridy(1);
+
+    grData->SetTitle("F_{2}(M) Comparison; M^{2} (Number of cells); F_{2}(M)");
+    grData->SetMarkerStyle(20);
+    grData->SetMarkerSize(0.6); 
+    grData->SetMarkerColor(kBlue+2);
+    grData->SetLineColor(kBlue+2);
+    grData->SetLineWidth(1); 
+    grData->GetHistogram()->GetXaxis()->SetLimits(1.0, 25000.0);
+
+    TAxis* xAxisTop = grData->GetXaxis();
+    xAxisTop->SetMoreLogLabels(kFALSE);
+    xAxisTop->SetNoExponent(kTRUE);
+    xAxisTop->SetMaxDigits(4);
+    xAxisTop->SetLabelSize(0.04); 
+    xAxisTop->SetTitleSize(0.045);
+    
+    TAxis* yAxisTop = grData->GetYaxis();
+    yAxisTop->SetLabelSize(0.04);
+    yAxisTop->SetTitleSize(0.045);
+
+    grMixed->SetMarkerStyle(20);
+    grMixed->SetMarkerSize(0.6); 
+    grMixed->SetMarkerColor(kRed+1);
+    grMixed->SetLineColor(kRed+1);
+    grMixed->SetLineWidth(1); 
+
+    grData->Draw("AP");
+    grMixed->Draw("P SAME");
+
+    TLegend* leg = new TLegend(0.65, 0.15, 0.85, 0.30);
+    leg->AddEntry(grData, "Original Events", "lep");
+    leg->AddEntry(grMixed, "Mixed Events", "lep");
+    leg->SetBorderSize(1);
+    leg->SetFillColor(kWhite);
+    leg->Draw("SAME");
+
+    c1->Print(pdfOut.c_str()); 
+
+    // ==========================================
+    // PAGE 2: Delta F2 Plot
+    // ==========================================
+    c1->Clear();
+    gPad->SetBottomMargin(0.12);
+    gPad->SetLeftMargin(0.12);
+    gPad->SetLogx(1);
+    gPad->SetGridx(1);
+    gPad->SetGridy(1);
+
+    grDelta->SetTitle("Difference #Delta F_{2}(M) (Original - Mixed); M^{2} (Number of cells); #Delta F_{2}(M)");
+    grDelta->SetMarkerStyle(20);
+    grDelta->SetMarkerSize(0.6);
+    grDelta->SetMarkerColor(kBlack);
+    grDelta->SetLineColor(kBlack);
+    grDelta->SetLineWidth(1);
+    grDelta->GetHistogram()->GetXaxis()->SetLimits(1.0, 25000.0);
+
+    TAxis* xAxisBot = grDelta->GetXaxis();
+    xAxisBot->SetMoreLogLabels(kFALSE);
+    xAxisBot->SetNoExponent(kTRUE);
+    xAxisBot->SetMaxDigits(4);
+    xAxisBot->SetLabelSize(0.04);
+    xAxisBot->SetTitleSize(0.045);
+
+    TAxis* yAxisBot = grDelta->GetYaxis();
+    yAxisBot->SetLabelSize(0.04);
+    yAxisBot->SetTitleSize(0.045);
+    yAxisBot->SetTitleOffset(1.2);
+
+    grDelta->Draw("AP");
+
+    c1->Print(pdfOut.c_str()); 
+
+    c1->Print((pdfOut + "]").c_str());
+
+    std::string rootOut = outputBaseName + "_F2_Comparison.root";
+    TFile* fOut = new TFile(rootOut.c_str(), "RECREATE");
+    grData->Write("Data_F2_Graph");
+    grMixed->Write("Mixed_F2_Graph");
+    grDelta->Write("Delta_F2_Graph");
+    
+    TCanvas* cData = new TCanvas("cData", "Comparison");
+    cData->cd();
+    gPad->SetLogx(1);
+    gPad->SetGridx(1);
+    gPad->SetGridy(1);
+    grData->Draw("AP");
+    grMixed->Draw("P SAME");
+    leg->Draw("SAME");
+    cData->Write("c_F2_Comparison_Canvas");
+    
+    TCanvas* cDelta = new TCanvas("cDelta", "Delta");
+    cDelta->cd();
+    gPad->SetLogx(1);
+    gPad->SetGridx(1);
+    gPad->SetGridy(1);
+    grDelta->Draw("AP");
+    cDelta->Write("c_F2_Delta_Canvas");
+    
+    fOut->Close();
+
+    std::cout << "=> Successfully saved F2 comparison and delta plots to " << pdfOut << " (2 pages) and " << rootOut << std::endl;
+    
+    delete leg;
+    delete cData;
+    delete cDelta;
+    delete c1;
+    delete grData;
+    delete grMixed;
+    delete grDelta;
 }

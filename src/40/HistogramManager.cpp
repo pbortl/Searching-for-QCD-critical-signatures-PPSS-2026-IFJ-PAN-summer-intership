@@ -52,7 +52,8 @@ HistogramManager::HistogramManager() {
     
     h2_px_py_pos = new TH2F("h2_px_py_pos", "Positive charge p_{y} vs p_{x}; p_{x} [GeV/c]; p_{y} [GeV/c]", 300, -1.5, 1.5, 300, -1.5, 1.5);
     h2_px_py_neg = new TH2F("h2_px_py_neg", "Negative charge p_{y} vs p_{x}; p_{x} [GeV/c]; p_{y} [GeV/c]", 300, -1.5, 1.5, 300, -1.5, 1.5);
-    h_Y_CM_tracks = new TH1F("h_Y_CM_tracks", "Selected Poxitive and Negative tracks y^{CM}_{track}; counts", 200, -3.0, 3.0);
+    
+    h_Y_CM_tracks = new TH1F("h_Y_CM_tracks", "Selected Positive and Negative tracks y^{CM}_{track}; y^{CM}_{track}; counts", 200, -3.0, 3.0);
 
     TH2F* h2_array[] = {h2_Tracks_vs_PSD_all, h2_Tracks_vs_PSD_cut, 
                         h2_PSD_Peripheral_vs_Selected, h2_PSD_Peripheral_vs_Selected_cut, 
