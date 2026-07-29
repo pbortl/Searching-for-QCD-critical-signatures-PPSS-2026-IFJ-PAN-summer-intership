@@ -52,15 +52,15 @@ namespace {
             }
         }
         
-        TPaveText pt(0.60, 0.30, 0.88, 0.68, "NDC");
+        TPaveText pt(0.60, 0.25, 0.88, 0.68, "NDC");
         pt.SetFillColor(kWhite);
         pt.SetBorderSize(1);
         pt.SetTextAlign(12);
         pt.AddText(Form("total events: %d", total_evts));
-        if (cent_events.size() >= 1) pt.AddText(Form("0-5%%: %d", cent_events[0]));
-        if (cent_events.size() >= 2) pt.AddText(Form("5-10%%: %d", cent_events[1] - cent_events[0]));
-        if (cent_events.size() >= 3) pt.AddText(Form("10-15%%: %d", cent_events[2] - cent_events[1]));
-        if (cent_events.size() >= 4) pt.AddText(Form("15-20%%: %d", cent_events[3] - cent_events[2]));
+        if (cent_events.size() >= 1) pt.AddText(Form("0-5%: %d", cent_events[0]));
+        if (cent_events.size() >= 2) pt.AddText(Form("5-10%: %d", cent_events[1] - cent_events[0]));
+        if (cent_events.size() >= 3) pt.AddText(Form("10-15%: %d", cent_events[2] - cent_events[1]));
+        if (cent_events.size() >= 4) pt.AddText(Form("15-20%: %d", cent_events[3] - cent_events[2]));
         pt.DrawClone("SAME");
     }
 
@@ -75,15 +75,15 @@ namespace {
             }
         }
 
-        TPaveText pt(0.60, 0.60, 0.88, 0.88, "NDC");
+        TPaveText pt(0.60, 0.55, 0.88, 0.88, "NDC");
         pt.SetFillColor(kWhite);
         pt.SetBorderSize(1);
         pt.SetTextAlign(12);
         pt.AddText(Form("total events: %d", total_evts));
-        if (cent_events.size() >= 1) pt.AddText(Form("0-5%%: %d", cent_events[0]));
-        if (cent_events.size() >= 2) pt.AddText(Form("5-10%%: %d", cent_events[1] - cent_events[0]));
-        if (cent_events.size() >= 3) pt.AddText(Form("10-15%%: %d", cent_events[2] - cent_events[1]));
-        if (cent_events.size() >= 4) pt.AddText(Form("15-20%%: %d", cent_events[3] - cent_events[2]));
+        if (cent_events.size() >= 1) pt.AddText(Form("0-5%: %d", cent_events[0]));
+        if (cent_events.size() >= 2) pt.AddText(Form("5-10%: %d", cent_events[1] - cent_events[0]));
+        if (cent_events.size() >= 3) pt.AddText(Form("10-15%: %d", cent_events[2] - cent_events[1]));
+        if (cent_events.size() >= 4) pt.AddText(Form("15-20%: %d", cent_events[3] - cent_events[2]));
         pt.DrawClone("SAME");
     }
 }
@@ -140,6 +140,11 @@ void EventPlotter::DrawAndSaveEventCuts(HistogramManager& hists,
     c->Print((pdfFilePath + "[").c_str());
 
     auto printPage = [&](TH1* h, const char* opt, bool logY, bool logZ, std::function<void()> drawExtra) {
+        // ZMIANA: Pomiń histogram, jeśli jest pusty (0 entries)
+        if (!h || h->GetEntries() == 0) {
+            return;
+        }
+
         c->Clear();
         gPad->SetLogy(logY ? 1 : 0);
         gPad->SetLogz(logZ ? 1 : 0);

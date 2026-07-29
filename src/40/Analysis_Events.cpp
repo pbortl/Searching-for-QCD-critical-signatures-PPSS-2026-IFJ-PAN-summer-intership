@@ -118,6 +118,20 @@ void Analysis_Events::Run() {
     double dynamic_limit_20 = cent_limits[3]; 
     delete cumul; delete cumul_raw;
 
+    // ZAPIS PROGOW DO PLIKU TXT
+    std::string centTxtPath = baseFileName + "_centrality_thresholds.txt";
+    std::ofstream centFile(centTxtPath);
+    if (centFile.is_open()) {
+        centFile << "=== CENTRALITY THRESHOLDS ===\n";
+        centFile << "0-5%:   " << cent_limits[0] << " GeV\n";
+        centFile << "5-10%:  " << cent_limits[1] << " GeV\n";
+        centFile << "10-15%: " << cent_limits[2] << " GeV\n";
+        centFile << "15-20%: " << cent_limits[3] << " GeV\n";
+        centFile << "=============================\n";
+        centFile.close();
+        std::cout << "=> Centrality thresholds saved to: " << centTxtPath << std::endl;
+    }
+
     std::cout << ">> Dynamic 20% centrality threshold: " << dynamic_limit_20 << " GeV\n" << std::endl;
 
     // STEP 2: FILL EVENT HISTOGRAMS

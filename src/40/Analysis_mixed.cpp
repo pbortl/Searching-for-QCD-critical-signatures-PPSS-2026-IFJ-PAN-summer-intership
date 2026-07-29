@@ -142,9 +142,24 @@ void Analysis_mixed::Run() {
             cent_events[i] = cumul_raw->GetBinContent(bin);
         }
     }
-    double dynamic_limit_20 = cent_limits[1];
+    double dynamic_limit_20 = cent_limits[3]; 
     delete cumul;
     delete cumul_raw;
+
+    // ZAPIS PROGOW DO PLIKU TXT
+    std::string centTxtPath = baseFileName + "_centrality_thresholds.txt";
+    std::ofstream centFile(centTxtPath);
+    if (centFile.is_open()) {
+        centFile << "=== CENTRALITY THRESHOLDS ===\n";
+        centFile << "0-5%:   " << cent_limits[0] << " GeV\n";
+        centFile << "5-10%:  " << cent_limits[1] << " GeV\n";
+        centFile << "10-15%: " << cent_limits[2] << " GeV\n";
+        centFile << "15-20%: " << cent_limits[3] << " GeV\n";
+        centFile << "=============================\n";
+        centFile.close();
+        std::cout << "=> Centrality thresholds saved to: " << centTxtPath << std::endl;
+    }
+
     std::cout << ">> Dynamic 20% centrality threshold calculated as: " << dynamic_limit_20 << " GeV\n" << std::endl;
 
     // Mixer settings create
@@ -167,9 +182,8 @@ void Analysis_mixed::Run() {
         return true;
     };
 
-    // Track cuts lambda (protons)
-    Dedx::BetheBlochWrapper bbWrap;
-    auto track_cuts = [&bbWrap, Y_beam_shift, mp](const EventClass::Track& t) mutable {
+    // Track cuts lambda (PROGRESSIVE FILTERING: Only mix after quality cuts)
+    auto track_cuts = [](const EventClass::Track& t) {
         unsigned int cl_VTPC_sum = t.clustersVTPC1 + t.clustersVTPC2;
         unsigned int cl_Pot = t.clustersPotentialAll;
         unsigned int cl_All = t.clustersAll;
@@ -181,32 +195,7 @@ void Analysis_mixed::Run() {
         if (ratio < Config::Ratio_min || ratio > Config::Ratio_max) return false;
         if (std::abs(t.bx) > Config::ImpactParam_bx_max || std::abs(t.by) > Config::ImpactParam_by_max) return false;
 
-        double ptot = std::sqrt(t.px * t.px + t.py * t.py + t.pz * t.pz);
-        double log_ptot = std::log10(ptot);
-        if (log_ptot < 0.55 || log_ptot > 2.0) return false;
-        if (t.px <= -1.5 || t.px >= 1.5) return false;
-        if (t.py <= -1.5 || t.py >= 1.5) return false;
-
-        double E_track = std::sqrt(mp*mp + ptot*ptot);
-        double Y_LAB_track = 0.5 * std::log((E_track + t.pz) / (E_track - t.pz));
-        double Y_CM_track = Y_LAB_track - Y_beam_shift;
-        if (std::abs(Y_CM_track) > 0.75) return false;
-
-        if (t.dEdx <= 0) return false; // Only positive tracks
-        
-        /*
-         * --- PARTICLE ID: Proton Selection via Bethe-Bloch (BB) ---
-         * Particles lose energy (dE/dx) in the TPC. We select protons by placing
-         * a cut slightly above the theoretical proton BB curve:
-         * Cut = BB_proton + 0.15 * (BB_kaon - BB_proton)
-         * This empirical 0.15 margin safely separates protons from kaons.
-         */
-        double bb_proton_dedx = bbWrap(3, ptot);
-        double bb_kaon_dedx = bbWrap(2, ptot);
-        double delta_kp = bb_kaon_dedx - bb_proton_dedx;
-        if (t.dEdx > bb_proton_dedx + 0.15 * delta_kp) return false;
-
-        return true; // Passed all cuts
+        return true; // Remaining cuts applied inside the mixer loop below
     };
 
     EventMixerT<EventClass::EventXeLaMag> mixer(chain, rng, mixerCutsPath, event_cuts, track_cuts);
@@ -232,6 +221,7 @@ void Analysis_mixed::Run() {
     long long f2_valid_events = 0;
 
     int mixed_event_counter = 0;
+    Dedx::BetheBlochWrapper bbWrap;
 
     // Mixed events loop
     for (const auto& mixed_event : eventStream) {
@@ -240,28 +230,26 @@ void Analysis_mixed::Run() {
             std::cout << "Mixed events processed: " << mixed_event_counter << std::endl;
         }
 
-        double current_mul = mixed_event.tracks.size();
-        sum_mul += current_mul;
-        sum_mul_sq += current_mul * current_mul;
-        f2_valid_events++;
+        std::vector<std::pair<double, double>> event_protons; 
 
-        std::vector<double> event_N2(M_MAX, 0.0);
-
+        // PROGRESSIVELY FILTERING TRACKS TO FILL HISTOGRAMS (like original data)
         for (size_t i = 0; i < mixed_event.tracks.size(); ++i) {
             const auto& t1 = mixed_event.tracks[i];
             
-            // Fill histograms for mixed events
             double ptot = std::sqrt(t1.px * t1.px + t1.py * t1.py + t1.pz * t1.pz);
             double log_ptot = std::log10(ptot);
             double E_track = std::sqrt(mp*mp + ptot*ptot);
             double Y_LAB_track = 0.5 * std::log((E_track + t1.pz) / (E_track - t1.pz));
             double Y_CM_track = Y_LAB_track - Y_beam_shift;
 
-            // Mixed events contain only final selected protons
-            // Replaced the old histogram pointers with the new ones ending in "_rap"
-            hists.h_dedx_ptot_protons_rap->Fill(log_ptot, t1.dEdx);
-            hists.h2_px_py_protons_rap->Fill(t1.px, t1.py);
-            hists.h_Y_CM_protons_rap->Fill(Y_CM_track);
+            // These particles already passed Quality Cuts
+            if (t1.dEdx > 0) {
+                hists.h_dedx_ptot_pos_qual->Fill(log_ptot, t1.dEdx);
+                hists.h2_px_py_pos_qual->Fill(t1.px, t1.py);
+            } else if (t1.dEdx < 0) {
+                hists.h_dedx_ptot_neg_qual->Fill(log_ptot, std::abs(t1.dEdx));
+                hists.h2_px_py_neg_qual->Fill(t1.px, t1.py);
+            }
             
             unsigned int cl_VTPC_sum = t1.clustersVTPC1 + t1.clustersVTPC2;
             unsigned int cl_Pot = t1.clustersPotentialAll;
@@ -275,15 +263,58 @@ void Analysis_mixed::Run() {
             hists.h_clusters_PotAll_cut->Fill(cl_Pot);
             hists.h2_bx_by_cut->Fill(t1.bx, t1.by);
 
-            // Optional export of mixed proton px and py to text file for inspection
+            // MOMENTUM CUTS
+            if (log_ptot < 0.55 || log_ptot > 2.0) continue;
+            if (t1.px <= -1.5 || t1.px >= 1.5) continue;
+            if (t1.py <= -1.5 || t1.py >= 1.5) continue;
+
+            if (t1.dEdx > 0) {
+                hists.h_dedx_ptot_pos_mom->Fill(log_ptot, t1.dEdx);
+                hists.h2_px_py_pos_mom->Fill(t1.px, t1.py);
+            } else if (t1.dEdx < 0) {
+                hists.h_dedx_ptot_neg_mom->Fill(log_ptot, std::abs(t1.dEdx));
+                hists.h2_px_py_neg_mom->Fill(t1.px, t1.py);
+            }
+
+            // PID CUTS (Protons)
+            if (t1.dEdx <= 0) continue;
+            double bb_proton_dedx = bbWrap(3, ptot);
+            double bb_kaon_dedx = bbWrap(2, ptot);
+            double delta_kp = bb_kaon_dedx - bb_proton_dedx;
+            if (t1.dEdx > bb_proton_dedx + 0.15 * delta_kp) continue;
+
+            hists.h_dedx_ptot_protons_id->Fill(log_ptot, t1.dEdx);
+            hists.h2_px_py_protons_id->Fill(t1.px, t1.py);
+            hists.h_Y_CM_protons_id->Fill(Y_CM_track);
+
+            // RAPIDITY CUT (FINAL)
+            if (std::abs(Y_CM_track) > 0.75) continue;
+
+            hists.h_dedx_ptot_protons_rap->Fill(log_ptot, t1.dEdx);
+            hists.h2_px_py_protons_rap->Fill(t1.px, t1.py);
+            hists.h_Y_CM_protons_rap->Fill(Y_CM_track);
+
             if (pxpyFile.is_open()) {
                 pxpyFile << t1.px << "\t" << t1.py << "\n";
             }
 
-            for (size_t j = i + 1; j < mixed_event.tracks.size(); ++j) {
-                const auto& t2 = mixed_event.tracks[j];
-                double dx = t1.px - t2.px;
-                double dy = t1.py - t2.py;
+            event_protons.push_back({t1.px, t1.py});
+        }
+
+        // F2 CALCULATIONS
+        double current_mul = event_protons.size();
+        if(current_mul == 0) continue;
+        
+        sum_mul += current_mul;
+        sum_mul_sq += current_mul * current_mul;
+        f2_valid_events++;
+
+        std::vector<double> event_N2(M_MAX, 0.0);
+
+        for (size_t i = 0; i < event_protons.size(); ++i) {
+            for (size_t j = i + 1; j < event_protons.size(); ++j) {
+                double dx = event_protons[i].first - event_protons[j].first;
+                double dy = event_protons[i].second - event_protons[j].second;
                 double dist = std::sqrt(dx*dx + dy*dy);
 
                 if (dist > 0.0) {

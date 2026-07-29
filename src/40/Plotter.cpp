@@ -47,7 +47,7 @@ namespace {
     }
 
     void DrawCentralityLines1D(double yMax, const std::vector<double>& cent_limits, const std::vector<int>& cent_events, int total_evts) {
-        for(size_t i = 0; i < cent_limits.size(); i++) { // ZMIANA: dynamiczny rozmiar
+        for(size_t i = 0; i < cent_limits.size(); i++) {
             if(cent_limits[i] > 0) {
                 TLine line(cent_limits[i], 0, cent_limits[i], yMax);
                 line.SetLineColor(kRed);
@@ -57,15 +57,15 @@ namespace {
             }
         }
         
-        TPaveText pt(0.65, 0.35, 0.85, 0.65, "NDC");
+        TPaveText pt(0.60, 0.30, 0.88, 0.68, "NDC");
         pt.SetFillColor(kWhite);
         pt.SetBorderSize(1);
         pt.SetTextAlign(12);
-        pt.AddText(Form("total evets: %d", total_evts));
-        pt.AddText(Form("0-5%%: %d", cent_events[0]));
-        pt.AddText(Form("5-10%%: %d", cent_events[1] - cent_events[0]));
-        pt.AddText(Form("10-15%%: %d", cent_events[2] - cent_events[1]));
-        pt.AddText(Form("15-20%%: %d", cent_events[3] - cent_events[2]));
+        pt.AddText(Form("total events: %d", total_evts));
+        if (cent_events.size() >= 1) pt.AddText(Form("0-5%%: %d", cent_events[0]));
+        if (cent_events.size() >= 2) pt.AddText(Form("5-10%%: %d", cent_events[1] - cent_events[0]));
+        if (cent_events.size() >= 3) pt.AddText(Form("10-15%%: %d", cent_events[2] - cent_events[1]));
+        if (cent_events.size() >= 4) pt.AddText(Form("15-20%%: %d", cent_events[3] - cent_events[2]));
         pt.DrawClone("SAME");
     }
 
@@ -80,15 +80,15 @@ namespace {
             }
         }
 
-        TPaveText pt(0.65, 0.65, 0.88, 0.88, "NDC");
+        TPaveText pt(0.60, 0.60, 0.88, 0.88, "NDC");
         pt.SetFillColor(kWhite);
         pt.SetBorderSize(1);
         pt.SetTextAlign(12);
-        pt.AddText(Form("total evets: %d", total_evts));
-        pt.AddText(Form("0-5%: %d", cent_events[0]));
-        pt.AddText(Form("5-10%: %d", cent_events[1] - cent_events[0]));
-        pt.AddText(Form("10-15%: %d", cent_events[2] - cent_events[1]));
-        pt.AddText(Form("15-20%: %d", cent_events[3] - cent_events[2]));
+        pt.AddText(Form("total events: %d", total_evts));
+        if (cent_events.size() >= 1) pt.AddText(Form("0-5%%: %d", cent_events[0]));
+        if (cent_events.size() >= 2) pt.AddText(Form("5-10%%: %d", cent_events[1] - cent_events[0]));
+        if (cent_events.size() >= 3) pt.AddText(Form("10-15%%: %d", cent_events[2] - cent_events[1]));
+        if (cent_events.size() >= 4) pt.AddText(Form("15-20%%: %d", cent_events[3] - cent_events[2]));
         pt.DrawClone("SAME");
     }
 }
@@ -156,6 +156,10 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
     c->Print((pdfFilePath + "[").c_str());
 
     auto printPage = [&](TH1* h, const char* opt, bool logY, bool logZ, std::function<void()> drawExtra, TFile* targetFile) {
+        if (!h || h->GetEntries() == 0) {
+            return; 
+        }
+
         c->Clear();
         gPad->SetLogy(logY ? 1 : 0);
         gPad->SetLogz(logZ ? 1 : 0);
@@ -188,7 +192,6 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
         }
     };
 
-    // VZ LOG SCALE REQUESTED BY NIKOS:
     printPage(hists.h_Vz_all, "HIST", true, false, nullptr, fOut);
     printPage(hists.h_Vz_cut, "HIST", true, false, nullptr, fOut);
 
@@ -279,40 +282,32 @@ void Plotter::DrawAndSaveAll(HistogramManager& hists, const std::string& baseFil
         bbDeuteron->Draw("SAME");
         bbLegend->Draw("SAME");
     };
-
-  //track cut
     
-    // 1. After Quality Cuts
     printPage(hists.h_dedx_ptot_pos_qual, "COLZ", false, true, drawBBCurves, fOut);
     printPage(hists.h_dedx_ptot_neg_qual, "COLZ", false, true, drawBBCurves, fOut);
     printPage(hists.h2_px_py_pos_qual, "COLZ", false, false, nullptr, fOut);
     printPage(hists.h2_px_py_neg_qual, "COLZ", false, false, nullptr, fOut);
 
-    // 2. After Momentum Cuts
     printPage(hists.h_dedx_ptot_pos_mom, "COLZ", false, true, drawBBCurves, fOut);
     printPage(hists.h_dedx_ptot_neg_mom, "COLZ", false, true, drawBBCurves, fOut);
     printPage(hists.h2_px_py_pos_mom, "COLZ", false, false, nullptr, fOut);
     printPage(hists.h2_px_py_neg_mom, "COLZ", false, false, nullptr, fOut);
 
-    // 3. After Proton ID
     printPage(hists.h_dedx_ptot_protons_id, "COLZ", false, true, drawBBCurves, fOut);
     printPage(hists.h2_px_py_protons_id, "COLZ", false, false, nullptr, fOut);
     hists.h_Y_CM_protons_id->SetFillColor(kBlue-7);
     printPage(hists.h_Y_CM_protons_id, "HIST", false, false, nullptr, fOut);
 
-    // 4. After Rapidity (Final output for F2(M))
     TFile *fOutProtons = new TFile(rootProtonsFilePath.c_str(), "RECREATE");
     printPage(hists.h_dedx_ptot_protons_rap, "COLZ", false, true, drawBBCurves, fOutProtons);
     printPage(hists.h2_px_py_protons_rap, "COLZ", false, false, nullptr, fOutProtons);
     hists.h_Y_CM_protons_rap->SetFillColor(kBlue-7);
     printPage(hists.h_Y_CM_protons_rap, "HIST", false, false, nullptr, fOutProtons);
 
-   
-
     std::string f2TxtPath = baseFileName + "_F2_results.txt";
     std::ifstream f2FileIn(f2TxtPath);
     TGraphErrors* gr_F2 = nullptr;
-    //creating F2 file
+    
     if (f2FileIn.is_open()) {
         std::string header;
         std::getline(f2FileIn, header);
